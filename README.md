@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# catering-web
 
-## Getting Started
+A catering website. Scaffolded, not yet designed.
 
-First, run the development server:
+## Running it
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+    npm run dev        # http://localhost:3000
+    npm run build
+    npm run typecheck
+    npm run lint
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Port 3000 collides with praximations-web-new. Run this on another port
+while both are up:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+    npm run dev -- --port 3100
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Stack
 
-## Learn More
+Next.js 16.2.10 (App Router, webpack), React 19.2.4, TypeScript, Tailwind
+v4. Deliberately the same versions as praximations-web-new, so anything
+learned in one repo transfers to the other.
 
-To learn more about Next.js, take a look at the following resources:
+## Where the design lives
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Two files carry the whole look, and everything else refers to them rather
+than hard-coding anything:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    app/globals.css   the palette, as tokens, plus radii
+    app/layout.tsx    the two typefaces
 
-## Deploy on Vercel
+Both are PLACEHOLDERS. The palette is warm paper and charcoal with a
+single earth accent; the faces are Fraunces for display and Inter for
+text. They are quiet on purpose, so the site reads as unfinished rather
+than as a brand nobody chose. Swap the values, keep the names, and the
+site follows.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Tokens are handed to Tailwind through `@theme inline`, so `bg-page`,
+`text-ink-muted`, `border-line`, and `font-display` exist as ordinary
+utilities.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Not decided yet
+
+Whose catering this is, what it sells, how someone books it, and whether
+it needs a CMS, a booking flow, or just pages. Nothing here assumes an
+answer.

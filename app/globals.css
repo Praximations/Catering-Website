@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/**
+ * The token layer. Every colour, and eventually every radius and shadow,
+ * is named here once and referenced everywhere else, so the whole site
+ * can be re-skinned from this file rather than hunted through markup.
+ *
+ * The palette below is a NEUTRAL PLACEHOLDER, warm paper and charcoal,
+ * deliberately quiet so it reads as unfinished rather than pretending to
+ * be a brand. Replace the values, not the names, once the real palette
+ * exists.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* Surfaces, lightest to deepest. */
+  --color-page: #fdfcfa;
+  --color-surface: #ffffff;
+  --color-raised: #f6f3ee;
+
+  /* Ink, strongest to faintest. */
+  --color-ink: #1c1a17;
+  --color-ink-muted: #57534e;
+  --color-ink-subtle: #8a837b;
+
+  /* The one accent. A single warm tone until the brand says otherwise. */
+  --color-accent: #9a6a3f;
+  --color-accent-strong: #7d5330;
+  --color-on-accent: #ffffff;
+
+  --color-line: #e7e1d8;
+
+  --radius-sm: 0.375rem;
+  --radius: 0.75rem;
+  --radius-lg: 1.25rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-page: #141210;
+    --color-surface: #1c1917;
+    --color-raised: #262220;
+    --color-ink: #f5f2ed;
+    --color-ink-muted: #b8b1a7;
+    --color-ink-subtle: #8a837b;
+    --color-accent: #c89a6f;
+    --color-accent-strong: #d8b088;
+    --color-on-accent: #1c1917;
+    --color-line: #322d29;
   }
 }
 
+/* Hand the tokens to Tailwind so `bg-page`, `text-ink-muted`, and
+   `border-line` exist as utilities rather than arbitrary values. */
+@theme inline {
+  --color-page: var(--color-page);
+  --color-surface: var(--color-surface);
+  --color-raised: var(--color-raised);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-subtle: var(--color-ink-subtle);
+  --color-accent: var(--color-accent);
+  --color-accent-strong: var(--color-accent-strong);
+  --color-on-accent: var(--color-on-accent);
+  --color-line: var(--color-line);
+  --font-sans: var(--font-sans-stack);
+  --font-display: var(--font-display-stack);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+}
+
+/* Respect the setting rather than animating over it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
