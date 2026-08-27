@@ -64,6 +64,12 @@
   --color-line: var(--color-line);
   --font-sans: var(--font-sans-stack);
   --font-display: var(--font-display-stack);
+
+  /* Radii, same trick: the values live in :root above, these lines are
+     what turn them into rounded-sm, rounded-md, and rounded-lg. */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
 }
 
 body {

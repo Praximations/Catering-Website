@@ -1,0 +1,43 @@
+"use client";
+
+import { useActionState } from "react";
+import { loginAction, type FormState } from "@/app/actions/auth";
+import { SubmitButton } from "@/components/submit-button";
+import { Alert, Field, inputClass } from "@/components/ui";
+
+export function LoginForm() {
+  const [state, formAction] = useActionState<FormState | undefined, FormData>(
+    loginAction,
+    undefined
+  );
+
+  return (
+    <form action={formAction} className="space-y-5" noValidate>
+      {state?.error ? <Alert tone="error">{state.error}</Alert> : null}
+
+      <Field label="Email" htmlFor="email">
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label="Password" htmlFor="password">
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          className={inputClass}
+        />
+      </Field>
+
+      <SubmitButton pendingLabel="Signing in...">Sign in</SubmitButton>
+    </form>
+  );
+}

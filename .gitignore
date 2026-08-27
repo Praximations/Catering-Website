@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# the local JSON database and the generated dev session key. Real accounts
+# and real enquiries, neither belongs in git.
+/data
 
 # vercel
 .vercel

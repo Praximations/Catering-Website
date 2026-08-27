@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
+import { AnnouncementBanner } from "@/components/announcement";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { business } from "@/lib/business";
 import "./globals.css";
 
 /**
@@ -21,8 +25,11 @@ const sans = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Catering",
-  description: "A catering website, in progress.",
+  title: {
+    default: `${business.name}, ${business.tagline}`,
+    template: `%s, ${business.name}`,
+  },
+  description: business.blurb,
 };
 
 export default function RootLayout({
@@ -32,7 +39,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">{children}</body>
+      <body className="flex min-h-full flex-col font-sans">
+        <AnnouncementBanner />
+        <SiteHeader />
+        <div className="flex flex-1 flex-col">{children}</div>
+        <SiteFooter />
+      </body>
     </html>
   );
 }
