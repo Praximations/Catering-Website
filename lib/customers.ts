@@ -65,6 +65,13 @@ export async function listCustomers(): Promise<CustomerProfile[]> {
     profile.messages += 1;
     touch(profile, contact.updatedAt);
   }
+  for (const message of data.customerMessages) {
+    const user = data.users.find((candidate) => candidate.id === message.userId);
+    if (!user) continue;
+    const profile = get(user.email, user.name);
+    profile.messages += 1;
+    touch(profile, message.createdAt);
+  }
 
   return [...customers.values()].sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
 }

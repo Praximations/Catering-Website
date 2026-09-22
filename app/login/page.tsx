@@ -2,14 +2,21 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
+import { isGoogleAuthConfigured } from "@/lib/supabase-auth";
+import { Alert } from "@/components/ui";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
   title: "Sign in",
 };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ oauth?: string }>;
+}) {
   const user = await getCurrentUser();
+  const { oauth } = await searchParams;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-20">
@@ -32,6 +39,34 @@ export default async function LoginPage() {
             ) : null}
 
             <div className="mt-9">
+              {oauth ? (
+                <div className="mb-5">
+                  <Alert tone="error">
+                    {oauth === "not-configured"
+                      ? "Google sign-in needs the Supabase Auth settings listed in the project setup."
+                      : "Google sign-in could not be completed. Please try again."}
+                  </Alert>
+                </div>
+              ) : null}
+
+              {isGoogleAuthConfigured ? (
+                <Link
+                  href="/auth/google"
+                  className="mb-5 flex min-h-12 w-full items-center justify-center gap-3 rounded-md border border-line bg-surface px-5 text-sm font-semibold text-ink shadow-sm transition-colors hover:bg-raised"
+                >
+                  <span aria-hidden className="grid size-6 place-items-center rounded-full border border-line font-bold text-[#4285f4]">G</span>
+                  Continue with Google
+                </Link>
+              ) : (
+                <span className="mb-5 flex min-h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-md border border-line bg-raised px-5 text-sm font-semibold text-ink-subtle" title="Configure Supabase Google Auth to enable this button">
+                  <span aria-hidden className="grid size-6 place-items-center rounded-full border border-line font-bold">G</span>
+                  Continue with Google
+                </span>
+              )}
+
+              <div className="mb-5 flex items-center gap-3 text-xs uppercase tracking-[0.12em] text-ink-subtle">
+                <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+              </div>
               <LoginForm />
             </div>
 

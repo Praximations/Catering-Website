@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { addToCartAction } from "@/app/actions/cart";
 import { ArrowIcon } from "@/components/icons";
+import { CartSidebar } from "@/components/cart-sidebar";
 import { SubmitButton } from "@/components/submit-button";
 import { buttonClass, inputClass } from "@/components/ui";
 import { getCart } from "@/lib/cart";
@@ -69,7 +70,8 @@ export default async function ShopPage() {
         ))}
       </nav>
 
-      <div className="mt-14 space-y-20">
+      <div className="mt-14 xl:grid xl:grid-cols-[minmax(0,1fr)_19rem] xl:gap-8">
+        <div className="space-y-20">
         {CATEGORY_ORDER.map((category) => {
           const inCategory = products.filter((product) => product.category === category);
           if (inCategory.length === 0) return null;
@@ -85,7 +87,7 @@ export default async function ShopPage() {
                 </p>
               </div>
 
-              <ul className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <ul className="mt-7 grid gap-5 md:grid-cols-2">
                 {inCategory.map((product) => {
                   const minimumId = `minimum-${product.slug}`;
                   return (
@@ -159,6 +161,8 @@ export default async function ShopPage() {
             </section>
           );
         })}
+        </div>
+        <CartSidebar cart={cart} />
       </div>
 
       {cart.count > 0 ? (

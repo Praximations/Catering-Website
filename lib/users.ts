@@ -66,6 +66,7 @@ export async function createUser(input: {
       email,
       name: input.name.trim(),
       passwordHash,
+      authProvider: "password",
       role: isOwner ? "owner" : "customer",
       createdAt: new Date().toISOString(),
     };
@@ -88,8 +89,43 @@ export async function authenticate(email: string, password: string): Promise<Pub
     await hashPassword(password);
     return null;
   }
+  if (!user.passwordHash) {
+    await hashPassword(password);
+    return null;
+  }
   const ok = await verifyPassword(password, user.passwordHash);
   return ok ? toPublic(user) : null;
+}
+
+export async function findOrCreateGoogleUser(input: {
+  email: string;
+  name: string;
+}): Promise<{ user: PublicUser; created: boolean }> {
+  const email = normalizeEmail(input.email);
+  const ownerEmail = process.env.OWNER_EMAIL ? normalizeEmail(process.env.OWNER_EMAIL) : null;
+
+  return updateData((data) => {
+    const existing = data.users.find((user) => user.email === email);
+    if (existing) return { user: toPublic(existing), created: false };
+
+    const user: UserRecord = {
+      id: newId(),
+      email,
+      name: input.name.trim() || email.split("@")[0],
+      passwordHash: null,
+      authProvider: "google",
+      role: ownerEmail
+        ? email === ownerEmail
+          ? "owner"
+          : "customer"
+        : data.users.length === 0
+          ? "owner"
+          : "customer",
+      createdAt: new Date().toISOString(),
+    };
+    data.users.push(user);
+    return { user: toPublic(user), created: true };
+  });
 }
 
 /** Whether an owner exists at all, so the UI can say so honestly. */

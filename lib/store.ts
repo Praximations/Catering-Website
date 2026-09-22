@@ -23,7 +23,8 @@ export interface UserRecord {
   email: string;
   name: string;
   /** Opaque, salted, hashed. See lib/passwords.ts. Never leaves this layer. */
-  passwordHash: string;
+  passwordHash: string | null;
+  authProvider?: "password" | "google";
   role: "owner" | "customer";
   createdAt: string;
 }
@@ -63,6 +64,26 @@ export interface ContactRecord {
   message: string;
   status: ContactStatus;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerMessageRecord {
+  id: string;
+  userId: string;
+  orderId: string | null;
+  sender: "customer" | "owner";
+  kind: "message" | "change_request";
+  body: string;
+  createdAt: string;
+}
+
+export interface SavedInfoRecord {
+  userId: string;
+  venues: string[];
+  addresses: string[];
+  guestPreferences: string;
+  dietaryInformation: string;
+  favoriteMenuSlugs: string[];
   updatedAt: string;
 }
 
@@ -189,6 +210,8 @@ export interface Data {
   users: UserRecord[];
   enquiries: EnquiryRecord[];
   contacts: ContactRecord[];
+  customerMessages: CustomerMessageRecord[];
+  savedInfo: SavedInfoRecord[];
   orders: OrderRecord[];
   controlKeys: ControlKeyRecord[];
   /** Capability id to mode. Absent means "use the declared default". */
@@ -203,6 +226,8 @@ const EMPTY: Data = {
   users: [],
   enquiries: [],
   contacts: [],
+  customerMessages: [],
+  savedInfo: [],
   orders: [],
   controlKeys: [],
   permissions: {},
@@ -235,6 +260,8 @@ function normalize(parsed: Partial<Data>): Data {
     users: Array.isArray(parsed.users) ? parsed.users : [],
     enquiries: Array.isArray(parsed.enquiries) ? parsed.enquiries : [],
     contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
+    customerMessages: Array.isArray(parsed.customerMessages) ? parsed.customerMessages : [],
+    savedInfo: Array.isArray(parsed.savedInfo) ? parsed.savedInfo : [],
     orders: Array.isArray(parsed.orders)
       ? parsed.orders.map((order) => ({
           ...order,

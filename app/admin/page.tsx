@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { updateEnquiryAction } from "@/app/actions/enquiries";
+import { replyCustomerMessageAction } from "@/app/actions/account";
 import { updateContactStatusAction } from "@/app/actions/contacts";
 import { updateOrderAction } from "@/app/actions/orders";
 import { StatusBadge, formatEventDate, formatSentAt, packageLabel } from "@/components/enquiry";
@@ -9,6 +10,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { EmptyState, PageHeader, inputClass, secondaryButtonClass } from "@/components/ui";
 import { CONTACT_STATUSES, CONTACT_STATUS_LABELS, contactCounts, listContacts } from "@/lib/contacts";
 import { listCustomers } from "@/lib/customers";
+import { listAllCustomerMessages } from "@/lib/customer-messages";
 import { ENQUIRY_STATUSES, STATUS_LABELS, enquiryCounts, listAllEnquiries } from "@/lib/enquiries";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, listAllOrders, orderCounts } from "@/lib/orders";
 import { requireOwner } from "@/lib/session";
@@ -28,7 +30,7 @@ export const metadata: Metadata = {
  */
 export default async function AdminPage() {
   const owner = await requireOwner();
-  const [orders, orderStats, enquiries, enquiryStats, contacts, contactStats, customers] = await Promise.all([
+  const [orders, orderStats, enquiries, enquiryStats, contacts, contactStats, customers, customerMessages] = await Promise.all([
     listAllOrders(),
     orderCounts(),
     listAllEnquiries(),
@@ -36,6 +38,7 @@ export default async function AdminPage() {
     listContacts(),
     contactCounts(),
     listCustomers(),
+    listAllCustomerMessages(),
   ]);
 
   return (
@@ -99,6 +102,42 @@ export default async function AdminPage() {
               </article>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="mb-16">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow">Customer portal</p>
+            <h2 className="mt-2 font-display text-3xl text-ink">Conversations</h2>
+          </div>
+          <span className="text-sm text-ink-subtle">{customerMessages.length} messages</span>
+        </div>
+        {customerMessages.length === 0 ? (
+          <div className="mt-6"><EmptyState title="No portal messages yet." /></div>
+        ) : (
+          <ul className="mt-6 grid gap-4 md:grid-cols-2">
+            {customerMessages.map((message) => (
+              <li key={message.id} className={`rounded-2xl border p-5 ${message.sender === "customer" ? "border-highlight/25 bg-highlight-soft/40" : "border-line bg-surface"}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-ink">{message.sender === "customer" ? message.customerName : "Catering coordinator"}</p>
+                    <p className="mt-1 text-xs text-ink-subtle">{message.customerEmail}{message.orderReference ? ` / Order ${message.orderReference}` : ""}</p>
+                  </div>
+                  <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-muted">{message.kind === "change_request" ? "Change request" : "Message"}</span>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-ink-muted">{message.body}</p>
+                {message.sender === "customer" ? (
+                  <form action={replyCustomerMessageAction} className="mt-5 border-t border-line pt-4">
+                    <input type="hidden" name="userId" value={message.userId} />
+                    <input type="hidden" name="orderId" value={message.orderId ?? ""} />
+                    <textarea name="body" rows={3} required maxLength={2000} placeholder="Reply to this customer..." className={inputClass} />
+                    <SubmitButton pendingLabel="Sending..." className={`${secondaryButtonClass} mt-3`}>Send reply</SubmitButton>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

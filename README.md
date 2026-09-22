@@ -32,7 +32,8 @@ if you want to set any of it.
     /quote            the enquiry form, open to everyone, no account needed
     /login            sign in
     /signup           create an account
-    /account          a customer's own orders and enquiries
+    /account          customer portal: events, orders, payments, messages,
+                      reordering, and saved preferences
     /admin            the owner's dashboard: orders and enquiries, statuses,
                       private notes
     /admin/praxi      what Praxi may do, what it has asked for, what it did
@@ -94,6 +95,21 @@ different between them.
   inside every Server Action, never in a layout: layouts do not
   necessarily re-run on navigation, and an action can be called without
   the page ever being loaded.
+
+### Google sign-in
+
+Google sign-in uses Supabase Auth with the server-side PKCE flow. Email and
+password login remains available. To enable the Google button:
+
+1. Enable Google in Supabase Auth and add the Google client ID and secret.
+2. In Supabase URL Configuration, allow `http://localhost:3100/auth/callback`
+   and `https://your-domain.example/auth/callback`.
+3. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SITE_URL` in
+   `.env.local` and in Vercel.
+
+After Google verifies the person, the callback creates or connects the local
+customer record by verified email and starts the same signed app session used
+by password login. Google tokens are not stored in the application database.
 
 ## Praxi
 
@@ -172,7 +188,8 @@ set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` and the same storage
 contract uses a private Supabase row with optimistic concurrency. Run
 `supabase/schema.sql` once in the Supabase SQL editor before deploying.
 
-For Vercel, also set `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, and the Stripe
+For Vercel, also set `SESSION_SECRET`, `SUPABASE_ANON_KEY`,
+`NEXT_PUBLIC_SITE_URL`, and the Stripe
 variables from `.env.example`. In Stripe, add a webhook ending in
 `/api/stripe/webhook` and subscribe it to `checkout.session.completed`.
 
@@ -181,9 +198,8 @@ git.
 
 ## Stack
 
-Next.js 16.2.10 (App Router, webpack), React 19.2.4, TypeScript, Tailwind
-v4, and no other dependencies. Deliberately the same versions as
-praximations-web-new.
+Next.js 16.3.5 (App Router, webpack), React 19.2.4, TypeScript, Tailwind
+v4, and the official Supabase browser and server auth packages.
 
 ## Still not decided
 
