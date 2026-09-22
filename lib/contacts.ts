@@ -1,10 +1,5 @@
-import {
-  newId,
-  readData,
-  updateData,
-  type ContactRecord,
-  type ContactStatus,
-} from "./store";
+import { db } from "./db";
+import type { ContactRecord, ContactStatus } from "./db/types";
 
 export const CONTACT_STATUSES: ContactStatus[] = ["new", "read", "replied"];
 
@@ -23,8 +18,8 @@ export async function createContact(input: {
   message: string;
 }): Promise<ContactRecord> {
   const now = new Date().toISOString();
-  const contact: ContactRecord = {
-    id: newId(),
+  return db.contacts.insert({
+    id: crypto.randomUUID(),
     userId: input.userId,
     name: input.name.trim(),
     email: input.email.trim().toLowerCase(),
@@ -34,26 +29,21 @@ export async function createContact(input: {
     status: "new",
     createdAt: now,
     updatedAt: now,
-  };
-  await updateData((data) => data.contacts.push(contact));
-  return contact;
-}
-
-export async function listContacts(): Promise<ContactRecord[]> {
-  return [...(await readData()).contacts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-
-export async function updateContactStatus(id: string, status: ContactStatus): Promise<boolean> {
-  return updateData((data) => {
-    const contact = data.contacts.find((item) => item.id === id);
-    if (!contact) return false;
-    contact.status = status;
-    contact.updatedAt = new Date().toISOString();
-    return true;
   });
 }
 
+export async function listContacts(): Promise<ContactRecord[]> {
+  return db.contacts.find(undefined, { orderBy: "createdAt", direction: "desc" });
+}
+
+export async function updateContactStatus(id: string, status: ContactStatus): Promise<boolean> {
+  return (await db.contacts.update({ all: { id } }, { status })).length > 0;
+}
+
 export async function contactCounts(): Promise<{ total: number; new: number }> {
-  const contacts = (await readData()).contacts;
-  return { total: contacts.length, new: contacts.filter((item) => item.status === "new").length };
+  const [total, unread] = await Promise.all([
+    db.contacts.count(),
+    db.contacts.count({ all: { status: "new" } }),
+  ]);
+  return { total, new: unread };
 }

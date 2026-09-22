@@ -1,6 +1,6 @@
-import { readData, updateData, type ProductOverride } from "./store";
-import { products as basePr } from "./shop";
-import type { Product } from "./shop";
+import { db } from "./db";
+import type { ProductOverrideRecord } from "./db/types";
+import { products as baseProducts, type Product } from "./shop";
 
 /**
  * The live catalog: what lib/shop.ts declares, plus whatever the owner or
@@ -30,7 +30,10 @@ export const PRICE_FLOOR_MINOR = 100;
 export const PRICE_CEILING_MINOR = 1_000_000;
 export const MAX_PRICE_MULTIPLE = 3;
 
-function resolve(product: Product, override: ProductOverride | undefined): ResolvedProduct {
+function resolve(
+  product: Product,
+  override: ProductOverrideRecord | undefined
+): ResolvedProduct {
   const priceMinor = override?.priceMinor ?? product.priceMinor;
   return {
     ...product,
@@ -41,10 +44,15 @@ function resolve(product: Product, override: ProductOverride | undefined): Resol
   };
 }
 
+async function overridesBySlug(): Promise<Map<string, ProductOverrideRecord>> {
+  const rows = await db.productOverrides.find();
+  return new Map(rows.map((row) => [row.slug, row]));
+}
+
 /** Every product, including ones taken off sale. For the owner and Praxi. */
 export async function getAllProducts(): Promise<ResolvedProduct[]> {
-  const data = await readData();
-  return basePr.map((product) => resolve(product, data.productOverrides[product.slug]));
+  const overrides = await overridesBySlug();
+  return baseProducts.map((product) => resolve(product, overrides.get(product.slug)));
 }
 
 /** What a customer may see and buy. */
@@ -53,9 +61,30 @@ export async function getAvailableProducts(): Promise<ResolvedProduct[]> {
 }
 
 export async function getProduct(slug: string): Promise<ResolvedProduct | null> {
-  const data = await readData();
-  const product = basePr.find((p) => p.slug === slug);
-  return product ? resolve(product, data.productOverrides[slug]) : null;
+  const product = baseProducts.find((candidate) => candidate.slug === slug);
+  if (!product) return null;
+  const override = await db.productOverrides.findOne({ all: { slug } });
+  return resolve(product, override ?? undefined);
+}
+
+/**
+ * Several products in one query, for pricing a whole cart.
+ *
+ * The cart reads every line on every render, and one lookup per line made
+ * that one database round trip per line.
+ */
+export async function getProducts(slugs: readonly string[]): Promise<Map<string, ResolvedProduct>> {
+  const wanted = baseProducts.filter((product) => slugs.includes(product.slug));
+  if (wanted.length === 0) return new Map();
+
+  const rows = await db.productOverrides.find({
+    all: { slug: { in: wanted.map((product) => product.slug) } },
+  });
+  const overrides = new Map(rows.map((row) => [row.slug, row]));
+
+  return new Map(
+    wanted.map((product) => [product.slug, resolve(product, overrides.get(product.slug))])
+  );
 }
 
 export interface PriceChangeResult {
@@ -70,7 +99,7 @@ export async function setProductPrice(
   priceMinor: number,
   by: string
 ): Promise<PriceChangeResult> {
-  const product = basePr.find((p) => p.slug === slug);
+  const product = baseProducts.find((candidate) => candidate.slug === slug);
   if (!product) return { ok: false, detail: `No product called ${slug}.` };
 
   if (!Number.isInteger(priceMinor)) {
@@ -91,17 +120,23 @@ export async function setProductPrice(
     };
   }
 
-  const from = (await getProduct(slug))?.priceMinor ?? product.priceMinor;
-  await updateData((data) => {
-    const existing = data.productOverrides[slug];
-    data.productOverrides[slug] = {
-      ...existing,
-      priceMinor,
-      updatedAt: new Date().toISOString(),
-      updatedBy: by,
-    };
+  const existing = await db.productOverrides.findOne({ all: { slug } });
+  const from = existing?.priceMinor ?? product.priceMinor;
+
+  await db.productOverrides.upsert({
+    slug,
+    priceMinor,
+    available: existing?.available ?? null,
+    updatedAt: new Date().toISOString(),
+    updatedBy: by,
   });
-  return { ok: true, detail: `${product.name} moved from ${from} to ${priceMinor} cents.`, from, to: priceMinor };
+
+  return {
+    ok: true,
+    detail: `${product.name} moved from ${from} to ${priceMinor} cents.`,
+    from,
+    to: priceMinor,
+  };
 }
 
 export async function setProductAvailability(
@@ -109,18 +144,18 @@ export async function setProductAvailability(
   available: boolean,
   by: string
 ): Promise<{ ok: boolean; detail: string }> {
-  const product = basePr.find((p) => p.slug === slug);
+  const product = baseProducts.find((candidate) => candidate.slug === slug);
   if (!product) return { ok: false, detail: `No product called ${slug}.` };
 
-  await updateData((data) => {
-    const existing = data.productOverrides[slug];
-    data.productOverrides[slug] = {
-      ...existing,
-      available,
-      updatedAt: new Date().toISOString(),
-      updatedBy: by,
-    };
+  const existing = await db.productOverrides.findOne({ all: { slug } });
+  await db.productOverrides.upsert({
+    slug,
+    priceMinor: existing?.priceMinor ?? null,
+    available,
+    updatedAt: new Date().toISOString(),
+    updatedBy: by,
   });
+
   return {
     ok: true,
     detail: `${product.name} is now ${available ? "on sale" : "off sale"}.`,
@@ -129,21 +164,17 @@ export async function setProductAvailability(
 
 /** Put a product back to exactly what the file says. */
 export async function clearProductOverride(slug: string): Promise<boolean> {
-  return updateData((data) => {
-    if (!data.productOverrides[slug]) return false;
-    delete data.productOverrides[slug];
-    return true;
-  });
+  return (await db.productOverrides.remove({ all: { slug } })) > 0;
 }
 
 /** Everything currently deviating from the file, for the owner to review. */
 export async function listOverrides(): Promise<
-  { product: ResolvedProduct; override: ProductOverride }[]
+  { product: ResolvedProduct; override: ProductOverrideRecord }[]
 > {
-  const data = await readData();
-  const out: { product: ResolvedProduct; override: ProductOverride }[] = [];
-  for (const product of basePr) {
-    const override = data.productOverrides[product.slug];
+  const overrides = await overridesBySlug();
+  const out: { product: ResolvedProduct; override: ProductOverrideRecord }[] = [];
+  for (const product of baseProducts) {
+    const override = overrides.get(product.slug);
     if (override) out.push({ product: resolve(product, override), override });
   }
   return out;

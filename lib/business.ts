@@ -23,6 +23,19 @@ export const business = {
     instagram: "",
     facebook: "",
   },
+  /**
+   * The currency everything is priced and charged in.
+   *
+   * ISO 4217, lower case, which is the spelling payment providers use.
+   * Changing this changes what new orders are charged in; existing orders
+   * keep the currency stored on them, so nothing already paid is
+   * reinterpreted. Prices in lib/shop.ts are minor units of THIS currency,
+   * so changing it without repricing means charging the same numbers in a
+   * different currency.
+   */
+  currency: "usd",
+  /** Where the price is rendered. Must match the currency above. */
+  locale: "en-US",
   /** How much notice you need. Shown on the quote form so nobody is surprised. */
   leadTimeDays: 14,
   /** Smallest booking you take. Shown honestly rather than discovered later. */

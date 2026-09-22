@@ -17,7 +17,7 @@ import { listOrdersForUser } from "@/lib/orders";
 import { getSavedInfo } from "@/lib/saved-info";
 import { requireUser } from "@/lib/session";
 import { formatMoney } from "@/lib/shop";
-import { isStripeConfigured } from "@/lib/stripe";
+import { isPaymentConfigured } from "@/lib/payments";
 import type { CustomerOrder } from "@/lib/orders";
 
 export const metadata: Metadata = { title: "Customer portal" };
@@ -126,7 +126,7 @@ export default async function AccountPage() {
             </div>
             <div className="flex min-w-72 flex-col justify-center gap-3 border-t border-on-accent/15 p-7 lg:border-l lg:border-t-0">
               <Link href={`/orders/${upcoming.token}`} className="flex items-center justify-between rounded-full bg-surface px-5 py-3 text-sm font-bold text-ink">View event <ArrowIcon className="size-4" /></Link>
-              {upcoming.paymentStatus === "unpaid" && isStripeConfigured ? (
+              {upcoming.paymentStatus === "unpaid" && isPaymentConfigured ? (
                 <form action={startPaymentAction}>
                   <input type="hidden" name="token" value={upcoming.token} />
                   <SubmitButton pendingLabel="Opening payment..." className="min-h-12 w-full rounded-full border border-on-accent/25 px-5 text-sm font-bold text-on-accent">Pay balance</SubmitButton>
@@ -176,7 +176,7 @@ export default async function AccountPage() {
           {orders.length ? orders.map((order, index) => (
             <div key={order.id} className={`flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between ${index ? "border-t border-line" : ""}`}>
               <div><p className="font-semibold text-ink">Invoice {order.reference}</p><p className="mt-1 text-sm text-ink-muted">{formatEventDate(order.eventDate)} / {formatMoney(order.subtotalMinor)}</p></div>
-              <div className="flex flex-wrap items-center gap-3"><PaymentBadge status={order.paymentStatus} /><Link href={`/orders/${order.token}`} className="text-sm font-semibold text-accent">{order.paymentStatus === "paid" ? "View receipt" : "View invoice"}</Link>{order.paymentStatus === "unpaid" && isStripeConfigured && order.status !== "cancelled" ? <form action={startPaymentAction}><input type="hidden" name="token" value={order.token} /><SubmitButton pendingLabel="Opening..." className={secondaryButtonClass}>Pay now</SubmitButton></form> : null}</div>
+              <div className="flex flex-wrap items-center gap-3"><PaymentBadge status={order.paymentStatus} /><Link href={`/orders/${order.token}`} className="text-sm font-semibold text-accent">{order.paymentStatus === "paid" ? "View receipt" : "View invoice"}</Link>{order.paymentStatus === "unpaid" && isPaymentConfigured && order.status !== "cancelled" ? <form action={startPaymentAction}><input type="hidden" name="token" value={order.token} /><SubmitButton pendingLabel="Opening..." className={secondaryButtonClass}>Pay now</SubmitButton></form> : null}</div>
             </div>
           )) : <EmptyState title="No invoices yet." />}
         </div>

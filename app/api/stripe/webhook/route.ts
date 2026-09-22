@@ -1,32 +1,22 @@
-import { markOrderPaid } from "@/lib/orders";
-import { verifyStripeSignature } from "@/lib/stripe";
+import { handleWebhook } from "@/lib/payments";
+import { stripeProvider } from "@/lib/payments/stripe";
 
-interface StripeCheckoutEvent {
-  id: string;
-  type: string;
-  data?: {
-    object?: {
-      id?: string;
-      payment_status?: string;
-      metadata?: { order_id?: string };
-    };
-  };
-}
+/**
+ * Stripe's webhook.
+ *
+ * Thin on purpose. Everything that decides whether to believe a delivery,
+ * and what to do about it, is in lib/payments so that every provider takes
+ * the same path. A second provider is a sibling of this file, not a second
+ * implementation of the rules.
+ */
+
+/**
+ * Never prerendered, and never cached. A cached webhook response would mean
+ * the second delivery of an event was answered without being processed.
+ */
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
-  const payload = await request.text();
-  if (!verifyStripeSignature(payload, request.headers.get("stripe-signature"))) {
-    return new Response("Invalid signature", { status: 400 });
-  }
-
-  const event = JSON.parse(payload) as StripeCheckoutEvent;
-  if (event.type === "checkout.session.completed") {
-    const session = event.data?.object;
-    const orderId = session?.metadata?.order_id;
-    if (orderId && session?.id && session.payment_status === "paid") {
-      await markOrderPaid(orderId, session.id);
-    }
-  }
-
-  return Response.json({ received: true });
+  const { status, body } = await handleWebhook(stripeProvider, request);
+  return Response.json(body, { status, headers: { "cache-control": "no-store" } });
 }

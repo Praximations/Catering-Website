@@ -1,4 +1,4 @@
-import type { OrderRecord } from "./store";
+import type { OrderRecord } from "./db/types";
 import type { CustomerEnquiry } from "./enquiries";
 import type { PublicUser } from "./users";
 

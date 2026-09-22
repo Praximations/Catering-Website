@@ -8,7 +8,9 @@ import { ENQUIRY_STATUSES, listAllEnquiries, updateEnquiry } from "./enquiries";
 import { ORDER_STATUSES, listAllOrders, updateOrder } from "./orders";
 import { praxiOrderUpdated } from "./praxi";
 import { formatMoney } from "./shop";
-import { readData, updateData, type EnquiryStatus, type OrderStatus, type PermissionMode } from "./store";
+import { listCustomers } from "./customers";
+import { clearAnnouncement, setAnnouncement } from "./settings";
+import type { EnquiryStatus, OrderStatus, PermissionMode } from "./db/types";
 
 /**
  * WHAT PRAXI CAN BE GIVEN. One entry per thing it could do to this site.
@@ -284,19 +286,19 @@ export const CAPABILITIES: Capability[] = [
     defaultMode: "on",
     validate: () => null,
     run: async (args) => {
-      const data = await readData();
-      const users = data.users.slice(0, limitOf(args));
+      const customers = (await listCustomers()).slice(0, limitOf(args));
       return {
         ok: true,
-        detail: `Read ${users.length} customer${users.length === 1 ? "" : "s"}.`,
-        // Shaped by hand. A password hash must never leave the database,
-        // and spreading the row would send one the moment nobody looked.
-        data: users.map((user) => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          joined_at: user.createdAt,
+        detail: `Read ${customers.length} customer${customers.length === 1 ? "" : "s"}.`,
+        // Shaped by hand. A password hash must never leave the database, and
+        // spreading a row is how one leaves the moment nobody is looking.
+        data: customers.map((customer) => ({
+          name: customer.name,
+          email: customer.email,
+          has_account: customer.hasAccount,
+          orders: customer.orders,
+          enquiries: customer.enquiries,
+          last_activity: customer.lastActivity,
         })),
       };
     },
@@ -411,9 +413,7 @@ export const CAPABILITIES: Capability[] = [
     },
     run: async (args, ctx) => {
       const message = str(args, "message").slice(0, MAX_ANNOUNCEMENT);
-      await updateData((data) => {
-        data.announcement = { message, setBy: ctx.actor, setAt: new Date().toISOString() };
-      });
+      await setAnnouncement(message, ctx.actor);
       return { ok: true, detail: `Notice put up: "${message}"` };
     },
   },
@@ -426,11 +426,7 @@ export const CAPABILITIES: Capability[] = [
     defaultMode: "ask",
     validate: () => null,
     run: async () => {
-      const had = await updateData((data) => {
-        const existed = data.announcement !== null;
-        data.announcement = null;
-        return existed;
-      });
+      const had = await clearAnnouncement();
       return { ok: true, detail: had ? "Notice taken down." : "There was no notice up." };
     },
   },

@@ -1,14 +1,8 @@
-import {
-  newId,
-  readData,
-  updateData,
-  type CustomerMessageRecord,
-} from "./store";
+import { db } from "./db";
+import type { CustomerMessageRecord } from "./db/types";
 
 export async function listMessagesForUser(userId: string): Promise<CustomerMessageRecord[]> {
-  return (await readData()).customerMessages
-    .filter((message) => message.userId === userId)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return db.customerMessages.find({ all: { userId } }, { orderBy: "createdAt" });
 }
 
 export type AdminCustomerMessage = CustomerMessageRecord & {
@@ -17,22 +11,38 @@ export type AdminCustomerMessage = CustomerMessageRecord & {
   orderReference: string | null;
 };
 
+/**
+ * Every thread, newest first, with the customer and order each belongs to.
+ *
+ * Three queries rather than two per message: the messages, then the users
+ * and orders they mention, looked up in one go each.
+ */
 export async function listAllCustomerMessages(): Promise<AdminCustomerMessage[]> {
-  const data = await readData();
-  return [...data.customerMessages]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((message) => {
-      const customer = data.users.find((user) => user.id === message.userId);
-      const order = message.orderId
-        ? data.orders.find((candidate) => candidate.id === message.orderId)
-        : null;
-      return {
-        ...message,
-        customerName: customer?.name ?? "Customer",
-        customerEmail: customer?.email ?? "",
-        orderReference: order?.reference ?? null,
-      };
-    });
+  const messages = await db.customerMessages.find(undefined, {
+    orderBy: "createdAt",
+    direction: "desc",
+  });
+  if (messages.length === 0) return [];
+
+  const userIds = [...new Set(messages.map((message) => message.userId))];
+  const orderIds = [
+    ...new Set(messages.map((message) => message.orderId).filter((id): id is string => !!id)),
+  ];
+
+  const [users, orders] = await Promise.all([
+    db.users.find({ all: { id: { in: userIds } } }),
+    orderIds.length > 0 ? db.orders.find({ all: { id: { in: orderIds } } }) : Promise.resolve([]),
+  ]);
+
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const referenceById = new Map(orders.map((order) => [order.id, order.reference]));
+
+  return messages.map((message) => ({
+    ...message,
+    customerName: userById.get(message.userId)?.name ?? "Customer",
+    customerEmail: userById.get(message.userId)?.email ?? "",
+    orderReference: message.orderId ? referenceById.get(message.orderId) ?? null : null,
+  }));
 }
 
 export async function createCustomerMessage(input: {
@@ -42,15 +52,13 @@ export async function createCustomerMessage(input: {
   kind: "message" | "change_request";
   body: string;
 }): Promise<CustomerMessageRecord> {
-  const message: CustomerMessageRecord = {
-    id: newId(),
+  return db.customerMessages.insert({
+    id: crypto.randomUUID(),
     userId: input.userId,
     orderId: input.orderId,
     sender: input.sender,
     kind: input.kind,
-    body: input.body.trim().slice(0, 2000),
+    body: input.body.trim(),
     createdAt: new Date().toISOString(),
-  };
-  await updateData((data) => data.customerMessages.push(message));
-  return message;
+  });
 }

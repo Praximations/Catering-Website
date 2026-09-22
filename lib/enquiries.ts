@@ -1,17 +1,11 @@
-import {
-  newId,
-  readData,
-  updateData,
-  type EnquiryRecord,
-  type EnquiryStatus,
-} from "./store";
+import { counts, db } from "./db";
+import type { EnquiryRecord, EnquiryStatus } from "./db/types";
 
 /**
  * Enquiries: somebody asking whether you can feed their event.
  *
- * This is the only thing the site actually collects, so it is the thing
- * both dashboards are built around. A customer sees their own; the owner
- * sees all of them and can move each one along.
+ * A customer sees their own; the owner sees all of them and can move each
+ * one along.
  */
 
 export const ENQUIRY_STATUSES: EnquiryStatus[] = ["new", "contacted", "confirmed", "declined"];
@@ -56,8 +50,8 @@ export async function createEnquiry(input: {
   notes: string;
 }): Promise<CustomerEnquiry> {
   const now = new Date().toISOString();
-  const enquiry: EnquiryRecord = {
-    id: newId(),
+  const created = await db.enquiries.insert({
+    id: crypto.randomUUID(),
     userId: input.userId,
     name: input.name.trim(),
     email: input.email.trim().toLowerCase(),
@@ -70,56 +64,64 @@ export async function createEnquiry(input: {
     ownerNotes: "",
     createdAt: now,
     updatedAt: now,
-  };
-
-  await updateData((data) => {
-    data.enquiries.push(enquiry);
   });
-  return forCustomer(enquiry);
+  return forCustomer(created);
 }
 
 /** Every enquiry, newest first. Owner only; the route is what enforces that. */
 export async function listAllEnquiries(): Promise<EnquiryRecord[]> {
-  const data = await readData();
-  return [...data.enquiries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return db.enquiries.find(undefined, { orderBy: "createdAt", direction: "desc" });
 }
 
 /**
- * One person's enquiries. Matched by account id AND by email address, so
- * an enquiry sent before signing up still appears once they do.
+ * One person's enquiries. Matched by account id OR by email address, so an
+ * enquiry sent before signing up still appears once they do.
  */
 export async function listEnquiriesForUser(
   userId: string,
   email: string
 ): Promise<CustomerEnquiry[]> {
-  const data = await readData();
-  const address = email.toLowerCase();
-  return data.enquiries
-    .filter((e) => e.userId === userId || e.email === address)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map(forCustomer);
+  const rows = await db.enquiries.find(
+    { any: [{ userId }, { email: email.toLowerCase() }] },
+    { orderBy: "createdAt", direction: "desc" }
+  );
+  return rows.map(forCustomer);
+}
+
+export async function findEnquiryById(id: string): Promise<EnquiryRecord | null> {
+  if (!id) return null;
+  return db.enquiries.findOne({ all: { id } });
 }
 
 export async function updateEnquiry(
   id: string,
   patch: { status?: EnquiryStatus; ownerNotes?: string }
 ): Promise<boolean> {
-  return updateData((data) => {
-    const enquiry = data.enquiries.find((e) => e.id === id);
-    if (!enquiry) return false;
-    if (patch.status) enquiry.status = patch.status;
-    if (patch.ownerNotes !== undefined) enquiry.ownerNotes = patch.ownerNotes.trim();
-    enquiry.updatedAt = new Date().toISOString();
-    return true;
-  });
+  const changes: Partial<EnquiryRecord> = {};
+  if (patch.status) changes.status = patch.status;
+  if (patch.ownerNotes !== undefined) changes.ownerNotes = patch.ownerNotes.trim();
+  if (Object.keys(changes).length === 0) return false;
+
+  return (await db.enquiries.update({ all: { id } }, changes)).length > 0;
 }
 
-/** Head counts for the dashboard. Real zeros, never a placeholder number. */
+/**
+ * Head counts for the dashboard. Real zeros, never a placeholder number,
+ * and counted by Postgres rather than by reading every row.
+ */
 export async function enquiryCounts(): Promise<Record<EnquiryStatus | "total", number>> {
-  const data = await readData();
-  const counts = { total: data.enquiries.length } as Record<EnquiryStatus | "total", number>;
-  for (const status of ENQUIRY_STATUSES) {
-    counts[status] = data.enquiries.filter((e) => e.status === status).length;
+  const result = {
+    total: 0,
+    new: 0,
+    contacted: 0,
+    confirmed: 0,
+    declined: 0,
+  } satisfies Record<EnquiryStatus | "total", number>;
+
+  for (const row of await counts.enquiries()) {
+    if (!(row.status in result)) continue;
+    result[row.status as EnquiryStatus] = row.count;
+    result.total += row.count;
   }
-  return counts;
+  return result;
 }

@@ -9,7 +9,7 @@ import { ORDER_STATUS_HELP, findOrderByToken } from "@/lib/orders";
 import { getCurrentUser } from "@/lib/session";
 import { formatMoney } from "@/lib/shop";
 import { startPaymentAction } from "@/app/actions/payments";
-import { isStripeConfigured } from "@/lib/stripe";
+import { isPaymentConfigured } from "@/lib/payments";
 
 export const metadata: Metadata = {
   title: "Your order",
@@ -96,7 +96,7 @@ export default async function OrderPage({
         <p className="mt-3 text-xs text-ink-subtle">Placed {formatSentAt(order.createdAt)}</p>
       </div>
 
-      {isStripeConfigured && order.paymentStatus !== "paid" && order.status !== "cancelled" ? (
+      {isPaymentConfigured && order.paymentStatus === "unpaid" && order.status !== "cancelled" ? (
         <div className="mt-6 bg-accent p-6 text-on-accent sm:flex sm:items-center sm:justify-between sm:gap-6">
           <div>
             <p className="font-display text-2xl">Pay securely online</p>

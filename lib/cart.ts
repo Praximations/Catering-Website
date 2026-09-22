@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getProduct, type ResolvedProduct } from "./catalog";
+import { getProduct, getProducts, type ResolvedProduct } from "./catalog";
 
 /**
  * The cart, kept in a cookie.
@@ -68,9 +68,16 @@ function parse(raw: string | undefined): StoredLine[] {
  * abandoned cart too.
  */
 async function build(stored: StoredLine[]): Promise<Cart> {
+  if (stored.length === 0) return { lines: [], subtotalMinor: 0, count: 0 };
+
+  // One lookup for every line, not one per line. The cart is rebuilt on
+  // every render of every page that shows the header badge, so a per-line
+  // query here was a database round trip per item on every request.
+  const products = await getProducts(stored.map((line) => line.s));
+
   const lines: CartLine[] = [];
   for (const line of stored) {
-    const product = await getProduct(line.s);
+    const product = products.get(line.s);
     if (!product || !product.available) continue;
     const quantity = Math.min(Math.max(Math.trunc(line.q), 1), MAX_QUANTITY);
     lines.push({

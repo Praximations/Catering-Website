@@ -1,5 +1,6 @@
-import { createHash, randomBytes } from "node:crypto";
-import { newId, readData, updateData, type ControlKeyRecord } from "./store";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { db } from "./db";
+import type { ControlKeyRecord } from "./db/types";
 
 /**
  * CONTROL KEYS: the credential Praxi presents to ACT on this site.
@@ -44,8 +45,8 @@ export async function mintControlKey(
   label: string
 ): Promise<{ token: string; key: ControlKeySummary }> {
   const token = `ck_live_${randomBytes(32).toString("base64url")}`;
-  const record: ControlKeyRecord = {
-    id: newId(),
+  const record = await db.controlKeys.insert({
+    id: randomUUID(),
     label: label.trim().slice(0, 80) || "Praxi",
     tokenHash: hash(token),
     tokenPrefix: token.slice(0, PREFIX_CHARS),
@@ -53,50 +54,47 @@ export async function mintControlKey(
     createdAt: new Date().toISOString(),
     lastUsedAt: null,
     revokedAt: null,
-  };
-
-  await updateData((data) => {
-    data.controlKeys.push(record);
   });
   return { token, key: toSummary(record) };
 }
 
 export async function listControlKeys(): Promise<ControlKeySummary[]> {
-  const data = await readData();
-  return [...data.controlKeys]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map(toSummary);
+  const keys = await db.controlKeys.find(undefined, {
+    orderBy: "createdAt",
+    direction: "desc",
+  });
+  return keys.map(toSummary);
 }
 
 export async function revokeControlKey(id: string): Promise<boolean> {
-  return updateData((data) => {
-    const key = data.controlKeys.find((k) => k.id === id && k.status === "active");
-    if (!key) return false;
-    key.status = "revoked";
-    key.revokedAt = new Date().toISOString();
-    return true;
-  });
+  // The status check is in the WHERE, so revoking twice reports honestly
+  // that the second attempt changed nothing.
+  const updated = await db.controlKeys.update(
+    { all: { id, status: "active" } },
+    { status: "revoked", revokedAt: new Date().toISOString() }
+  );
+  return updated.length === 1;
 }
 
 /**
  * A presented token to the key it belongs to, or null.
  *
- * Revocation takes effect immediately because this reads the record every
- * time: there is no cached acceptance to wait out.
+ * Looked up by hash, so there is no secret to compare in non-constant time,
+ * and read fresh every call, so a revocation takes effect immediately
+ * rather than after some cached acceptance expires.
  */
 export async function verifyControlKey(token: string): Promise<ControlKeySummary | null> {
   if (!/^ck_live_[A-Za-z0-9_-]{20,}$/.test(token)) return null;
 
-  const digest = hash(token);
-  const data = await readData();
-  const key = data.controlKeys.find((k) => k.tokenHash === digest);
+  const key = await db.controlKeys.findOne({ all: { tokenHash: hash(token) } });
   if (!key || key.status !== "active") return null;
 
   // Bookkeeping only, and never allowed to fail the request it describes.
-  updateData((fresh) => {
-    const row = fresh.controlKeys.find((k) => k.id === key.id);
-    if (row) row.lastUsedAt = new Date().toISOString();
-  }).catch((error) => console.warn("[control] lastUsedAt not recorded:", error.message));
+  db.controlKeys
+    .update({ all: { id: key.id } }, { lastUsedAt: new Date().toISOString() })
+    .catch((error: unknown) => {
+      console.warn("[control] lastUsedAt not recorded:", (error as Error).message);
+    });
 
   return toSummary(key);
 }

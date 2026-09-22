@@ -1,7 +1,7 @@
 import { formatSentAt } from "./enquiry";
 import { ORDER_STATUS_LABELS } from "@/lib/orders";
 import { formatMoney } from "@/lib/shop";
-import type { OrderLine, OrderStatus } from "@/lib/store";
+import type { OrderLine, OrderStatus, PaymentStatus } from "@/lib/db/types";
 
 /** Shared order rendering, so both dashboards describe an order the same way. */
 
@@ -22,14 +22,27 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
-export function PaymentBadge({ status }: { status: "unpaid" | "paid" }) {
+/**
+ * Three states, not two. Refunded has to read differently from unpaid: money
+ * arrived and went back, which is not the same as never having arrived, and
+ * showing it as "Unpaid" would have the owner chasing a payment they refunded.
+ */
+const PAYMENT_BADGE: Record<PaymentStatus, { label: string; className: string }> = {
+  paid: { label: "Paid", className: "border-accent/30 bg-accent/10 text-accent-strong" },
+  unpaid: { label: "Unpaid", className: "border-line bg-raised text-ink-subtle" },
+  refunded: {
+    label: "Refunded",
+    className: "border-highlight/30 bg-highlight-soft text-highlight",
+  },
+};
+
+export function PaymentBadge({ status }: { status: PaymentStatus }) {
+  const { label, className } = PAYMENT_BADGE[status];
   return (
-    <span className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-xs font-medium ${
-      status === "paid"
-        ? "border-accent/30 bg-accent/10 text-accent-strong"
-        : "border-line bg-raised text-ink-subtle"
-    }`}>
-      {status === "paid" ? "Paid" : "Unpaid"}
+    <span
+      className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-xs font-medium ${className}`}
+    >
+      {label}
     </span>
   );
 }

@@ -1,4 +1,4 @@
-import { readData } from "@/lib/store";
+import { getAnnouncement } from "@/lib/settings";
 
 /**
  * The notice across the top of the site.
@@ -9,12 +9,12 @@ import { readData } from "@/lib/store";
  * page it sits on.
  */
 export async function AnnouncementBanner() {
-  const data = await readData();
-  if (!data.announcement) return null;
+  const announcement = await getAnnouncement();
+  if (!announcement) return null;
 
   return (
     <div className="border-b border-highlight/20 bg-highlight-soft px-6 py-2.5 text-center text-sm font-medium text-highlight">
-      {data.announcement.message}
+      {announcement.message}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { STATUS_LABELS } from "@/lib/enquiries";
 import { findPackage } from "@/lib/menu";
-import type { EnquiryStatus } from "@/lib/store";
+import type { EnquiryStatus } from "@/lib/db/types";
 
 /**
  * The shared way an enquiry is described, so the customer's page and the

@@ -1,4 +1,12 @@
-import { readData } from "./store";
+import { db } from "./db";
+
+/**
+ * The owner's view of everybody who has ever been in touch, keyed by email.
+ *
+ * One person may have an account, several orders placed before they made
+ * one, an enquiry, and a contact message. Email is the only thing common to
+ * all four, so it is what stitches them together.
+ */
 
 export interface CustomerProfile {
   email: string;
@@ -13,7 +21,16 @@ export interface CustomerProfile {
 }
 
 export async function listCustomers(): Promise<CustomerProfile[]> {
-  const data = await readData();
+  // Five reads in parallel rather than in sequence. They are independent,
+  // and the dashboard waits for the slowest rather than for the sum.
+  const [users, orders, enquiries, contacts, messages] = await Promise.all([
+    db.users.find({ all: { role: "customer" } }),
+    db.orders.find(),
+    db.enquiries.find(),
+    db.contacts.find(),
+    db.customerMessages.find(),
+  ]);
+
   const customers = new Map<string, CustomerProfile>();
 
   const get = (email: string, name: string, phone = ""): CustomerProfile => {
@@ -43,30 +60,34 @@ export async function listCustomers(): Promise<CustomerProfile[]> {
     if (!profile.lastActivity || at > profile.lastActivity) profile.lastActivity = at;
   };
 
-  for (const user of data.users) {
-    if (user.role !== "customer") continue;
+  const emailByUserId = new Map(users.map((user) => [user.id, user]));
+
+  for (const user of users) {
     const profile = get(user.email, user.name);
     profile.hasAccount = true;
     touch(profile, user.createdAt);
   }
-  for (const order of data.orders) {
+  for (const order of orders) {
     const profile = get(order.email, order.name, order.phone);
     profile.orders += 1;
-    if (order.status !== "cancelled") profile.lifetimeValueMinor += order.subtotalMinor;
+    // Cancelled and refunded are not lifetime value.
+    if (order.status !== "cancelled" && order.paymentStatus !== "refunded") {
+      profile.lifetimeValueMinor += order.subtotalMinor;
+    }
     touch(profile, order.updatedAt);
   }
-  for (const enquiry of data.enquiries) {
+  for (const enquiry of enquiries) {
     const profile = get(enquiry.email, enquiry.name, enquiry.phone);
     profile.enquiries += 1;
     touch(profile, enquiry.updatedAt);
   }
-  for (const contact of data.contacts) {
+  for (const contact of contacts) {
     const profile = get(contact.email, contact.name, contact.phone);
     profile.messages += 1;
     touch(profile, contact.updatedAt);
   }
-  for (const message of data.customerMessages) {
-    const user = data.users.find((candidate) => candidate.id === message.userId);
+  for (const message of messages) {
+    const user = emailByUserId.get(message.userId);
     if (!user) continue;
     const profile = get(user.email, user.name);
     profile.messages += 1;

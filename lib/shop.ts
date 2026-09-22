@@ -11,6 +11,8 @@
  * formatMoney below is the only place cents turn into something readable.
  */
 
+import { business } from "./business";
+
 /** What a quantity MEANS for this product, which changes how it is priced. */
 export type ProductUnit = "person" | "item" | "sandwich";
 
@@ -163,11 +165,20 @@ export function quantityInputLabel(product: Product): string {
  * Cents to something a person reads. The locale is pinned so the wording
  * cannot drift with whatever locale the server happens to boot with.
  */
-export function formatMoney(minor: number): string {
-  return `$${(minor / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+/**
+ * The only place minor units become readable text.
+ *
+ * Intl does the symbol and the separators, so this reads correctly in
+ * whatever currency lib/business.ts names rather than assuming a dollar
+ * sign. `currency` is a parameter because an ORDER carries its own: one
+ * placed before a currency change must still display in the currency it was
+ * charged in.
+ */
+export function formatMoney(minor: number, currency: string = business.currency): string {
+  return new Intl.NumberFormat(business.locale, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(minor / 100);
 }
 
 export const CATEGORY_LABELS: Record<Product["category"], string> = {

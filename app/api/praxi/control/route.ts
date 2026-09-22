@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { handleControlRequest } from "@/lib/control";
 import { verifyControlKey } from "@/lib/controlKeys";
+import { checkRateLimit, PRAXI_CONTROL_LIMIT } from "@/lib/rate-limit";
 
 /**
  * THE DOOR PRAXI ACTS THROUGH.
@@ -24,23 +25,11 @@ import { verifyControlKey } from "@/lib/controlKeys";
  * into a status code.
  */
 
-/** A key may make this many calls a minute. Generous for an assistant,
- *  and low enough that a runaway loop cannot rewrite the catalog. */
-const RATE_LIMIT = 60;
-const WINDOW_MS = 60_000;
-const hits = new Map<string, number[]>();
-
-function withinRateLimit(keyId: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(keyId) ?? []).filter((at) => at > now - WINDOW_MS);
-  if (recent.length >= RATE_LIMIT) return false;
-  recent.push(now);
-  hits.set(keyId, recent);
-  return true;
-}
-
-const json = (body: unknown, status: number) =>
-  Response.json(body, { status, headers: { "cache-control": "no-store" } });
+const json = (body: unknown, status: number, extra: Record<string, string> = {}) =>
+  Response.json(body, {
+    status,
+    headers: { "cache-control": "no-store", ...extra },
+  });
 
 export async function POST(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
@@ -51,8 +40,15 @@ export async function POST(request: NextRequest) {
   // permission: an unauthenticated caller learns only that it is not in.
   if (!key) return json({ error: "unauthorized" }, 401);
 
-  if (!withinRateLimit(key.id)) {
-    return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  // Stored, not in-process: an in-memory counter gives every serverless
+  // instance its own private allowance, which is no limit at all.
+  const limit = await checkRateLimit(`praxi:${key.id}`, PRAXI_CONTROL_LIMIT);
+  if (!limit.allowed) {
+    return json(
+      { error: "rate_limited", retry_after_seconds: limit.retryAfterSeconds },
+      429,
+      { "retry-after": String(limit.retryAfterSeconds) }
+    );
   }
 
   let body: unknown;
@@ -88,7 +84,7 @@ export async function POST(request: NextRequest) {
         ? { idempotencyKey: payload.idempotency_key }
         : {}),
     },
-    `${key.label} (${key.tokenPrefix})`
+    { keyId: key.id, label: `${key.label} (${key.tokenPrefix})` }
   );
 
   switch (outcome.status) {

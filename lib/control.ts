@@ -1,10 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { findCapability, type CapabilityResult } from "./capabilities";
+import { db } from "./db";
+import type { ApprovalRecord } from "./db/types";
 import {
-  findByIdempotencyKey,
+  claimIdempotencyKey,
   getMode,
   recordAttempt,
+  recordIdempotentOutcome,
+  releaseIdempotencyKey,
 } from "./permissions";
-import { newId, readData, updateData, type ApprovalRecord } from "./store";
 
 /**
  * THE GATE. Every request from Praxi passes through here, and nothing
@@ -29,7 +33,11 @@ import { newId, readData, updateData, type ApprovalRecord } from "./store";
 export type ControlOutcome =
   | { status: "ok"; detail: string; data?: unknown }
   | { status: "queued"; detail: string; approvalId: string }
-  | { status: "denied"; detail: string; reason: "not_permitted" | "unknown_capability" | "invalid_args" }
+  | {
+      status: "denied";
+      detail: string;
+      reason: "not_permitted" | "unknown_capability" | "invalid_args";
+    }
   | { status: "failed"; detail: string };
 
 export interface ControlRequest {
@@ -40,16 +48,24 @@ export interface ControlRequest {
   idempotencyKey?: string;
 }
 
+/** Who is asking, as both a display name and the key row behind it. */
+export interface Actor {
+  /** The control key's id, which is what an idempotency key is scoped to. */
+  keyId: string;
+  /** Human readable, for the audit log and the approval queue. */
+  label: string;
+}
+
 export async function handleControlRequest(
   request: ControlRequest,
-  actor: string
+  actor: Actor
 ): Promise<ControlOutcome> {
   const capability = findCapability(request.capability);
 
   if (!capability) {
     await recordAttempt({
       capability: request.capability,
-      actor,
+      actor: actor.label,
       decision: "denied",
       detail: "No such capability.",
       idempotencyKey: request.idempotencyKey,
@@ -65,7 +81,7 @@ export async function handleControlRequest(
   if (invalid) {
     await recordAttempt({
       capability: capability.id,
-      actor,
+      actor: actor.label,
       decision: "denied",
       detail: `Invalid arguments: ${invalid}`,
       idempotencyKey: request.idempotencyKey,
@@ -73,26 +89,39 @@ export async function handleControlRequest(
     return { status: "denied", reason: "invalid_args", detail: invalid };
   }
 
-  if (request.idempotencyKey) {
-    const already = await findByIdempotencyKey(request.idempotencyKey);
-    if (already) {
+  // Claimed before the permission check, so a retry of a QUEUED request does
+  // not queue a second approval for the owner to read.
+  const key = request.idempotencyKey ?? "";
+  if (key) {
+    const claim = await claimIdempotencyKey(actor.keyId, key, capability.id);
+    if (claim.replayed) {
       return {
         status: "ok",
-        detail: `Already handled: ${already.detail}`,
+        detail: claim.outcome
+          ? `Already handled: ${claim.outcome}`
+          : "Already handled: this request was received before.",
       };
     }
   }
+
+  /** A failure before anything changed must not burn the retry. */
+  const releaseOnFailure = async (): Promise<void> => {
+    if (key) await releaseIdempotencyKey(actor.keyId, key);
+  };
 
   const mode = await getMode(capability.id);
 
   if (mode === "off") {
     await recordAttempt({
       capability: capability.id,
-      actor,
+      actor: actor.label,
       decision: "denied",
       detail: "Refused: the owner has this set to never.",
-      idempotencyKey: request.idempotencyKey,
+      idempotencyKey: key || null,
     });
+    // A refusal is a final answer, not a transient one, but the key is
+    // released so that turning the permission on and retrying works.
+    await releaseOnFailure();
     return {
       status: "denied",
       reason: "not_permitted",
@@ -105,15 +134,18 @@ export async function handleControlRequest(
       capability: capability.id,
       args: request.args,
       reason: request.reason ?? "",
-      requestedBy: actor,
+      requestedBy: actor.label,
     });
     await recordAttempt({
       capability: capability.id,
-      actor,
+      actor: actor.label,
       decision: "queued",
       detail: "Waiting for the owner to approve.",
-      idempotencyKey: request.idempotencyKey,
+      idempotencyKey: key || null,
     });
+    if (key) {
+      await recordIdempotentOutcome(actor.keyId, key, "queued for the owner to approve");
+    }
     return {
       status: "queued",
       approvalId: approval.id,
@@ -121,7 +153,18 @@ export async function handleControlRequest(
     };
   }
 
-  return runCapability(capability.id, request.args, actor, request.idempotencyKey);
+  const outcome = await runCapability(capability.id, request.args, actor.label, key || undefined);
+
+  if (key) {
+    if (outcome.status === "ok") {
+      await recordIdempotentOutcome(actor.keyId, key, outcome.detail);
+    } else {
+      // Nothing was accomplished, so a retry with the same key should be
+      // allowed to try again rather than being told it already happened.
+      await releaseOnFailure();
+    }
+  }
+  return outcome;
 }
 
 /**
@@ -177,8 +220,8 @@ async function queueApproval(input: {
   reason: string;
   requestedBy: string;
 }): Promise<ApprovalRecord> {
-  const approval: ApprovalRecord = {
-    id: newId(),
+  return db.approvals.insert({
+    id: randomUUID(),
     capability: input.capability,
     args: input.args,
     reason: input.reason.slice(0, 400),
@@ -189,21 +232,22 @@ async function queueApproval(input: {
     decidedAt: null,
     result: null,
     error: null,
-  };
-  await updateData((data) => {
-    data.approvals.unshift(approval);
   });
-  return approval;
 }
 
-export async function listApprovals(status?: ApprovalRecord["status"]): Promise<ApprovalRecord[]> {
-  const data = await readData();
-  const all = [...data.approvals].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
-  return status ? all.filter((approval) => approval.status === status) : all;
+export async function listApprovals(
+  status?: ApprovalRecord["status"],
+  limit = 50
+): Promise<ApprovalRecord[]> {
+  return db.approvals.find(status ? { all: { status } } : undefined, {
+    orderBy: "requestedAt",
+    direction: "desc",
+    limit,
+  });
 }
 
 export async function countPendingApprovals(): Promise<number> {
-  return (await readData()).approvals.filter((a) => a.status === "pending").length;
+  return db.approvals.count({ all: { status: "pending" } });
 }
 
 /**
@@ -215,16 +259,12 @@ export async function approveRequest(
   approvalId: string,
   decidedBy: string
 ): Promise<ControlOutcome> {
-  const claimed = await updateData((data) => {
-    const approval = data.approvals.find((a) => a.id === approvalId && a.status === "pending");
-    if (!approval) return null;
-    // Claimed inside the write queue, so two clicks on Approve cannot
-    // both get through and run the action twice.
-    approval.status = "approved";
-    approval.decidedBy = decidedBy;
-    approval.decidedAt = new Date().toISOString();
-    return { capability: approval.capability, args: approval.args };
-  });
+  // Claimed in one statement, with `status: "pending"` in the WHERE, so two
+  // clicks on Approve cannot both get through and run the action twice.
+  const [claimed] = await db.approvals.update(
+    { all: { id: approvalId, status: "pending" } },
+    { status: "approved", decidedBy, decidedAt: new Date().toISOString() }
+  );
 
   if (!claimed) return { status: "failed", detail: "That request is no longer pending." };
 
@@ -234,25 +274,22 @@ export async function approveRequest(
     `${decidedBy} (approved for Praxi)`
   );
 
-  await updateData((data) => {
-    const approval = data.approvals.find((a) => a.id === approvalId);
-    if (!approval) return;
-    approval.result = outcome.status === "ok" ? outcome.detail : null;
-    approval.error = outcome.status === "ok" ? null : outcome.detail;
-  });
+  await db.approvals.update(
+    { all: { id: approvalId } },
+    {
+      result: outcome.status === "ok" ? outcome.detail : null,
+      error: outcome.status === "ok" ? null : outcome.detail,
+    }
+  );
 
   return outcome;
 }
 
 export async function denyRequest(approvalId: string, decidedBy: string): Promise<boolean> {
-  const denied = await updateData((data) => {
-    const approval = data.approvals.find((a) => a.id === approvalId && a.status === "pending");
-    if (!approval) return false;
-    approval.status = "denied";
-    approval.decidedBy = decidedBy;
-    approval.decidedAt = new Date().toISOString();
-    return true;
-  });
+  const [denied] = await db.approvals.update(
+    { all: { id: approvalId, status: "pending" } },
+    { status: "denied", decidedBy, decidedAt: new Date().toISOString() }
+  );
 
   if (denied) {
     await recordAttempt({
@@ -262,5 +299,5 @@ export async function denyRequest(approvalId: string, decidedBy: string): Promis
       detail: "The owner denied a request from Praxi.",
     });
   }
-  return denied;
+  return Boolean(denied);
 }
