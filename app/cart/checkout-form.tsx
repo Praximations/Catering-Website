@@ -81,7 +81,6 @@ export function CheckoutForm({
         <Field
           label="How many people"
           htmlFor="guests"
-          hint="Everyone eating, not just the trays."
           error={errors.guests}
         >
           <input
@@ -107,18 +106,16 @@ export function CheckoutForm({
       </Field>
 
       <Field
-        label="Anything else"
+        label="Order notes"
         htmlFor="notes"
-        hint="Allergies, timings, where to park, whatever matters."
+        hint="Add allergies, timing, or delivery instructions."
       >
         <textarea id="notes" name="notes" rows={4} maxLength={2000} className={inputClass} />
       </Field>
 
       <div className="flex flex-wrap items-center gap-4 border-t border-line pt-6">
         <SubmitButton pendingLabel="Placing order...">Place order, {total}</SubmitButton>
-        <p className="text-xs text-ink-subtle">
-          Place the order first, then choose secure online payment or follow-up invoicing.
-        </p>
+        <p className="text-xs text-ink-subtle">Payment options appear after the order is saved.</p>
       </div>
     </form>
   );

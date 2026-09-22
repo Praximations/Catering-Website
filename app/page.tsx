@@ -9,12 +9,6 @@ const sandwichAssortments = products
   .filter((product) => product.category === "sandwich")
   .slice(0, 3);
 
-const occasions = [
-  { number: "01", title: "Workdays", copy: "Breakfasts, boardrooms, team lunches, and office milestones." },
-  { number: "02", title: "Celebrations", copy: "Birthdays, showers, graduations, and the people you want around the table." },
-  { number: "03", title: "Full rooms", copy: "Openings, launches, fundraisers, and effortless food for a crowd." },
-];
-
 export default function Home() {
   return (
     <main>
@@ -31,16 +25,11 @@ export default function Home() {
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <Link href="/shop" className={buttonClass}>
-                  Start an order <span aria-hidden>↗</span>
+                  Start an order
                 </Link>
                 <Link href="/menu" className={secondaryButtonClass}>
-                  Explore the menu
+                  View catalog
                 </Link>
-              </div>
-              <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-line pt-6 text-sm text-ink-muted">
-                <p><strong className="font-semibold text-ink">Made fresh</strong><br />for your event</p>
-                <p><strong className="font-semibold text-ink">Flexible menus</strong><br />for every table</p>
-                <p><strong className="font-semibold text-ink">Thoughtful service</strong><br />from start to finish</p>
               </div>
             </div>
           </div>
@@ -62,26 +51,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
-        <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
-          <div>
-            <p className="eyebrow">Catering, considered</p>
-            <h2 className="mt-4 font-display text-4xl leading-[1.02] tracking-[-0.035em] text-ink sm:text-5xl">
-              The easiest part of bringing people together.
-            </h2>
-          </div>
-          <div className="grid gap-px bg-line sm:grid-cols-3">
-            {occasions.map((occasion) => (
-              <article key={occasion.number} className="bg-page p-6 sm:min-h-56 sm:p-7">
-                <p className="text-xs font-bold tracking-[0.14em] text-highlight">{occasion.number}</p>
-                <h3 className="mt-12 font-display text-2xl text-ink">{occasion.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-ink-muted">{occasion.copy}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="border-y border-line bg-raised/55">
         <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 sm:py-24">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -92,7 +61,7 @@ export default function Home() {
               </h2>
             </div>
             <Link href="/shop#sandwich" className="text-sm font-bold text-accent hover:text-accent-strong">
-              Shop all catering <span aria-hidden>→</span>
+              Shop all catering
             </Link>
           </div>
 
@@ -128,14 +97,14 @@ export default function Home() {
 
       <section className="mx-auto grid w-full max-w-7xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[0.72fr_1.28fr] lg:gap-24">
         <div className="lg:sticky lg:top-32 lg:self-start">
-          <p className="eyebrow">Menus with range</p>
+          <p className="eyebrow">The catalog</p>
           <h2 className="mt-4 font-display text-4xl leading-tight tracking-[-0.035em] text-ink sm:text-5xl">
             Built around your kind of gathering.
           </h2>
           <p className="mt-5 max-w-md text-base leading-7 text-ink-muted">
-            Start with one of our signatures, then tell us what the room, the season, and your guests need.
+            Start with a signature collection or ask us to shape something for your event.
           </p>
-          <Link href="/quote" className={`${secondaryButtonClass} mt-7`}>
+          <Link href="/contact" className={`${secondaryButtonClass} mt-7`}>
             Plan something custom
           </Link>
         </div>
@@ -154,7 +123,6 @@ export default function Home() {
               </div>
               <p className="text-sm font-semibold text-accent">
                 {pkg.pricePerPerson === null ? "Custom quote" : `From $${pkg.pricePerPerson} per guest`}
-                <span aria-hidden className="ml-3 inline-block transition-transform group-hover:translate-x-1">→</span>
               </p>
             </Link>
           ))}
@@ -170,8 +138,8 @@ export default function Home() {
             </h2>
           </div>
           <div className="flex items-center border-t border-on-accent/20 px-7 py-8 lg:border-l lg:border-t-0 lg:px-12">
-            <Link href="/quote" className="inline-flex min-h-12 items-center justify-center bg-surface px-6 text-sm font-bold text-accent shadow-sm transition-transform hover:-translate-y-0.5">
-              Request a proposal <span aria-hidden className="ml-2">↗</span>
+            <Link href="/contact" className="inline-flex min-h-12 items-center justify-center rounded-full bg-surface px-6 text-sm font-bold text-ink shadow-sm transition-transform hover:-translate-y-0.5">
+              Contact us
             </Link>
           </div>
         </div>

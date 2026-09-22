@@ -51,6 +51,21 @@ export interface EnquiryRecord {
   updatedAt: string;
 }
 
+export type ContactStatus = "new" | "read" | "replied";
+
+export interface ContactRecord {
+  id: string;
+  userId: string | null;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  status: ContactStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** A line as it was at the moment of ordering. */
 export interface OrderLine {
   slug: string;
@@ -173,6 +188,7 @@ export interface AnnouncementRecord {
 export interface Data {
   users: UserRecord[];
   enquiries: EnquiryRecord[];
+  contacts: ContactRecord[];
   orders: OrderRecord[];
   controlKeys: ControlKeyRecord[];
   /** Capability id to mode. Absent means "use the declared default". */
@@ -186,6 +202,7 @@ export interface Data {
 const EMPTY: Data = {
   users: [],
   enquiries: [],
+  contacts: [],
   orders: [],
   controlKeys: [],
   permissions: {},
@@ -217,6 +234,7 @@ function normalize(parsed: Partial<Data>): Data {
   return {
     users: Array.isArray(parsed.users) ? parsed.users : [],
     enquiries: Array.isArray(parsed.enquiries) ? parsed.enquiries : [],
+    contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
     orders: Array.isArray(parsed.orders)
       ? parsed.orders.map((order) => ({
           ...order,

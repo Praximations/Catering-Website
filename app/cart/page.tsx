@@ -26,11 +26,11 @@ export default async function CartPage() {
   if (cart.lines.length === 0) {
     return (
       <main className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-6">
-        <PageHeader eyebrow="Cart" title="Your cart" lede="Your catering selections will appear here." />
-        <EmptyState title="Nothing in the cart yet.">
-          <p>Browse sandwich assortments, packages, and platters to start your order.</p>
+        <PageHeader eyebrow="Order" title="Your cart" />
+        <EmptyState title="Your cart is empty.">
+          <p>Choose something from the catalog to get started.</p>
           <Link href="/shop" className={`${buttonClass} mt-5`}>
-            Browse catering
+            Open catalog
           </Link>
         </EmptyState>
       </main>
@@ -40,19 +40,19 @@ export default async function CartPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-6 sm:py-16">
       <PageHeader
-        eyebrow="Cart"
-        title="Review your order"
-        lede="Adjust quantities, then tell us where and when you need everything."
+        eyebrow="Checkout"
+        title="Finish your order."
+        lede="Review your selections and add the delivery details."
       />
 
       <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
-        <section aria-labelledby="order-summary-title" className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <section aria-labelledby="order-summary-title" className="rounded-[1.5rem] border border-line bg-surface p-5 shadow-sm sm:p-7">
           <div className="flex items-center justify-between border-b border-line pb-4">
             <h2 id="order-summary-title" className="font-display text-2xl text-ink">
               Order summary
             </h2>
             <Link href="/shop" className="text-sm font-semibold text-accent-strong hover:text-accent">
-              Add more
+              Back to catalog
             </Link>
           </div>
 
@@ -133,7 +133,7 @@ export default async function CartPage() {
           </div>
         </section>
 
-        <section aria-labelledby="delivery-title" className="rounded-lg bg-raised/70 p-5 sm:p-8">
+        <section aria-labelledby="delivery-title" className="rounded-[1.5rem] bg-raised/70 p-5 sm:p-8">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-highlight">
               Delivery details
@@ -141,9 +141,6 @@ export default async function CartPage() {
             <h2 id="delivery-title" className="mt-2 font-display text-3xl tracking-tight text-ink">
               Where and when
             </h2>
-            <p className="mt-3 text-sm leading-6 text-ink-muted">
-              We will save your order, then you can pay online or wait for our confirmation.
-            </p>
           </div>
 
           {short.length > 0 ? (

@@ -15,7 +15,7 @@ import { AboutIcon, ContactIcon, MenuIcon, OrderIcon } from "@/components/icons"
  */
 
 const links = [
-  { href: "/menu", label: "Menu", icon: MenuIcon },
+  { href: "/menu", label: "Catalog", icon: MenuIcon },
   { href: "/shop", label: "Order", icon: OrderIcon },
   { href: "/about", label: "About", icon: AboutIcon },
   { href: "/contact", label: "Contact", icon: ContactIcon },
@@ -26,7 +26,7 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/80 bg-surface/95 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3.5 sm:px-8">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto] items-center gap-x-5 gap-y-3 px-5 py-3.5 sm:grid-cols-[1fr_auto_1fr] sm:px-8">
         <Link href="/" className="flex items-center gap-3 text-ink">
           <span
             aria-hidden
@@ -40,7 +40,7 @@ export async function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:order-none sm:w-auto sm:flex-1">
+        <nav className="order-3 col-span-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm sm:order-none sm:col-span-1">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -53,7 +53,7 @@ export async function SiteHeader() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-3 text-sm">
+        <div className="ml-auto flex items-center justify-end gap-3 text-sm">
           {/* The count is only shown when there is one. A zero badge is
               noise, and "0" next to a cart reads as an error. */}
           <Link
@@ -78,7 +78,7 @@ export async function SiteHeader() {
                 href={user.role === "owner" ? "/admin" : "/account"}
                 className="font-medium text-ink-muted transition-colors hover:text-accent-strong"
               >
-                {user.role === "owner" ? "Dashboard" : "My enquiries"}
+                {user.role === "owner" ? "Dashboard" : "Account"}
               </Link>
               {/* A plain form, so signing out is a POST and not something a
                   stray link preview can trigger. */}
@@ -96,7 +96,7 @@ export async function SiteHeader() {
               Sign in
             </Link>
           )}
-          <Link href="/quote" className="hidden min-h-10 items-center bg-accent px-4 text-xs font-bold text-on-accent transition-colors hover:bg-accent-strong md:inline-flex">
+          <Link href="/contact" className="hidden min-h-10 items-center rounded-full bg-ink px-4 text-xs font-bold text-on-accent transition-colors hover:bg-accent-strong md:inline-flex">
             Plan an event
           </Link>
         </div>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { LoginForm } from "./login-form";
 
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === "owner" ? "/admin" : "/account");
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-20">
@@ -21,8 +19,17 @@ export default async function LoginPage() {
             <p className="eyebrow">Your account</p>
             <h1 className="mt-5 font-display text-5xl leading-none tracking-[-0.04em] text-ink">Welcome back.</h1>
             <p className="mt-5 text-base leading-7 text-ink-muted">
-              Sign in to check your orders, follow enquiries, and keep every event detail in one place.
+              Sign in to manage orders and event details.
             </p>
+
+            {user ? (
+              <div className="mt-6 rounded-xl border border-line bg-raised px-4 py-3 text-sm text-ink-muted">
+                Signed in as <span className="font-semibold text-ink">{user.email}</span>.{" "}
+                <Link href={user.role === "owner" ? "/admin" : "/account"} className="font-semibold text-accent">
+                  Open your dashboard
+                </Link>
+              </div>
+            ) : null}
 
             <div className="mt-9">
               <LoginForm />
@@ -37,7 +44,7 @@ export default async function LoginPage() {
               </p>
               <p className="mt-2 text-ink-subtle">
                 Just browsing?{" "}
-                <Link href="/menu" className="font-medium hover:text-ink">Explore the menu</Link>
+                <Link href="/menu" className="font-medium hover:text-ink">Open the catalog</Link>
               </p>
             </div>
           </div>

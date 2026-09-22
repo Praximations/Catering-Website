@@ -7,7 +7,7 @@ import { business } from "@/lib/business";
 import { menu } from "@/lib/menu";
 
 export const metadata: Metadata = {
-  title: "Catering menu",
+  title: "Catering catalog",
   description: "Sandwiches, team lunches, buffets, canapes, and plated catering.",
 };
 
@@ -17,7 +17,7 @@ export default function MenuPage() {
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-stretch">
         <div className="flex flex-col justify-between py-2 lg:py-8">
           <div>
-            <p className="eyebrow">Our menu</p>
+            <p className="eyebrow">Our catalog</p>
             <h1 className="mt-5 max-w-xl font-display text-6xl leading-[0.92] tracking-[-0.05em] text-ink sm:text-7xl">
               Food made for <span className="italic text-accent">a full table.</span>
             </h1>
@@ -26,7 +26,7 @@ export default function MenuPage() {
             </p>
           </div>
 
-          <nav aria-label="Menu sections" className="mt-10 flex flex-wrap gap-2">
+          <nav aria-label="Catalog sections" className="mt-10 flex flex-wrap gap-2">
             {menu.map((pkg, index) => (
               <a
                 key={pkg.slug}
@@ -97,7 +97,7 @@ export default function MenuPage() {
                 <h2 className="mt-8 font-display text-4xl leading-tight tracking-[-0.035em] text-ink sm:text-5xl">{pkg.name}</h2>
                 <p className="mt-5 max-w-md text-base leading-7 text-ink-muted">{pkg.summary}</p>
                 <Link href="/shop" className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-accent hover:text-accent-strong">
-                  Order this menu <ArrowIcon className="size-4" />
+                  Order this collection <ArrowIcon className="size-4" />
                 </Link>
               </div>
 
@@ -133,7 +133,7 @@ export default function MenuPage() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-on-accent/60">Ready when you are</p>
             <h2 className="mt-3 font-display text-3xl tracking-[-0.025em] sm:text-4xl">Build the table your event needs.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-on-accent/70">Order a ready-made spread online, or get in touch when the menu needs a more personal shape.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-on-accent/70">Order a ready-made spread online, or get in touch for something custom.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/shop" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-surface px-6 text-sm font-bold text-accent">Order online <ArrowIcon className="size-4" /></Link>

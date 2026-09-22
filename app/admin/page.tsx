@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { updateEnquiryAction } from "@/app/actions/enquiries";
+import { updateContactStatusAction } from "@/app/actions/contacts";
 import { updateOrderAction } from "@/app/actions/orders";
 import { StatusBadge, formatEventDate, formatSentAt, packageLabel } from "@/components/enquiry";
 import { OrderLines, OrderStatusBadge, PaymentBadge } from "@/components/order";
 import { SubmitButton } from "@/components/submit-button";
 import { EmptyState, PageHeader, inputClass, secondaryButtonClass } from "@/components/ui";
-import { countPendingApprovals } from "@/lib/control";
+import { CONTACT_STATUSES, CONTACT_STATUS_LABELS, contactCounts, listContacts } from "@/lib/contacts";
+import { listCustomers } from "@/lib/customers";
 import { ENQUIRY_STATUSES, STATUS_LABELS, enquiryCounts, listAllEnquiries } from "@/lib/enquiries";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, listAllOrders, orderCounts } from "@/lib/orders";
-import { praxiConfigured } from "@/lib/praxi";
 import { requireOwner } from "@/lib/session";
 import { formatMoney } from "@/lib/shop";
 
@@ -27,67 +28,114 @@ export const metadata: Metadata = {
  */
 export default async function AdminPage() {
   const owner = await requireOwner();
-  const [orders, orderStats, enquiries, enquiryStats, pendingApprovals] = await Promise.all([
+  const [orders, orderStats, enquiries, enquiryStats, contacts, contactStats, customers] = await Promise.all([
     listAllOrders(),
     orderCounts(),
     listAllEnquiries(),
     enquiryCounts(),
-    countPendingApprovals(),
+    listContacts(),
+    contactCounts(),
+    listCustomers(),
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-6 py-16">
+    <main className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-16">
       <PageHeader
         eyebrow={`Signed in as ${owner.email}`}
         title="Dashboard"
-        lede="Everything that has come in through the site."
+        lede="Orders, customers, and messages."
       />
 
       {/* Real numbers, including real zeros. Nothing here is a sample. */}
-      <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-md border border-line bg-surface px-4 py-3">
+      <dl className="mb-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-line bg-surface px-5 py-4">
           <dt className="text-xs uppercase tracking-wide text-ink-subtle">Orders</dt>
           <dd className="mt-1 font-display text-2xl text-ink">{orderStats.total}</dd>
         </div>
-        <div className="rounded-md border border-line bg-surface px-4 py-3">
+        <div className="rounded-xl border border-line bg-surface px-5 py-4">
           <dt className="text-xs uppercase tracking-wide text-ink-subtle">Booked value</dt>
           <dd className="mt-1 font-display text-2xl text-ink">
             {formatMoney(orderStats.revenueMinor)}
           </dd>
         </div>
-        <div className="rounded-md border border-line bg-surface px-4 py-3">
-          <dt className="text-xs uppercase tracking-wide text-ink-subtle">Enquiries</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{enquiryStats.total}</dd>
+        <div className="rounded-xl border border-line bg-surface px-5 py-4">
+          <dt className="text-xs uppercase tracking-wide text-ink-subtle">Customers</dt>
+          <dd className="mt-1 font-display text-2xl text-ink">{customers.length}</dd>
         </div>
-        <div className="rounded-md border border-line bg-surface px-4 py-3">
-          <dt className="text-xs uppercase tracking-wide text-ink-subtle">Unanswered</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{enquiryStats.new}</dd>
+        <div className="rounded-xl border border-line bg-surface px-5 py-4">
+          <dt className="text-xs uppercase tracking-wide text-ink-subtle">New messages</dt>
+          <dd className="mt-1 font-display text-2xl text-ink">{contactStats.new + enquiryStats.new}</dd>
         </div>
       </dl>
 
-      {/* Say plainly whether the Praxi connection is live, rather than
-          implying an integration that is not configured. Anything waiting
-          on the owner is surfaced HERE, because a request sitting unseen
-          on another page is the same as no approval system at all. */}
-      <div className="mb-12 flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-raised px-4 py-3">
-        <p className="text-xs text-ink-subtle">
-          {praxiConfigured()
-            ? "Praxi is connected. Orders, customers, and enquiries are mirrored to it as they happen."
-            : "Praxi is not connected. Set PRAXI_API_URL and PRAXI_SECRET_KEY to mirror orders and enquiries to it."}
-        </p>
-        <Link
-          href="/admin/praxi"
-          className={
-            pendingApprovals > 0
-              ? "rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-on-accent"
-              : "text-xs text-ink-muted underline-offset-4 hover:text-ink hover:underline"
-          }
-        >
-          {pendingApprovals > 0
-            ? `${pendingApprovals} request${pendingApprovals === 1 ? "" : "s"} waiting for you`
-            : "What Praxi may do"}
-        </Link>
-      </div>
+      <section className="mb-16">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow">CRM</p>
+            <h2 className="mt-2 font-display text-3xl text-ink">Customers</h2>
+          </div>
+          <Link href="/admin/praxi" className="text-xs font-semibold text-ink-subtle hover:text-ink">Automation settings</Link>
+        </div>
+        {customers.length === 0 ? (
+          <div className="mt-6"><EmptyState title="No customer data yet." /></div>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
+            {customers.map((customer, index) => (
+              <article key={customer.email} className={`grid gap-4 p-5 sm:grid-cols-[1.2fr_1fr_auto] sm:items-center ${index > 0 ? "border-t border-line" : ""}`}>
+                <div>
+                  <p className="font-semibold text-ink">{customer.name || "Customer"}</p>
+                  <a href={`mailto:${customer.email}`} className="mt-1 block text-sm text-ink-muted hover:text-accent">{customer.email}</a>
+                  {customer.phone ? <a href={`tel:${customer.phone.replace(/[^\d+]/g, "")}`} className="mt-1 block text-xs text-ink-subtle">{customer.phone}</a> : null}
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted">
+                  <span>{customer.orders} orders</span>
+                  <span>{customer.enquiries} enquiries</span>
+                  <span>{customer.messages} messages</span>
+                </div>
+                <div className="sm:text-right">
+                  <p className="font-display text-xl text-ink">{formatMoney(customer.lifetimeValueMinor)}</p>
+                  <p className="text-xs text-ink-subtle">{customer.hasAccount ? "Account" : "Guest"}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mb-16">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow">Inbox</p>
+            <h2 className="mt-2 font-display text-3xl text-ink">Contact messages</h2>
+          </div>
+          <span className="text-sm text-ink-subtle">{contactStats.total} total</span>
+        </div>
+        {contacts.length === 0 ? (
+          <div className="mt-6"><EmptyState title="No contact messages yet." /></div>
+        ) : (
+          <ul className="mt-6 grid gap-4 md:grid-cols-2">
+            {contacts.map((contact) => (
+              <li key={contact.id} className="rounded-2xl border border-line bg-surface p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-display text-xl text-ink">{contact.subject}</h3>
+                    <p className="mt-1 text-sm text-ink-muted">{contact.name} · {contact.email}</p>
+                  </div>
+                  <span className="rounded-full bg-raised px-2.5 py-1 text-xs font-semibold text-ink-muted">{CONTACT_STATUS_LABELS[contact.status]}</span>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-ink-muted">{contact.message}</p>
+                <form action={updateContactStatusAction} className="mt-5 flex items-center gap-2 border-t border-line pt-4">
+                  <input type="hidden" name="id" value={contact.id} />
+                  <select name="status" defaultValue={contact.status} className={`${inputClass} py-2`}>
+                    {CONTACT_STATUSES.map((status) => <option key={status} value={status}>{CONTACT_STATUS_LABELS[status]}</option>)}
+                  </select>
+                  <SubmitButton pendingLabel="Saving..." className={secondaryButtonClass}>Save</SubmitButton>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mb-16">
         <h2 className="font-display text-2xl tracking-tight text-ink">Orders</h2>
