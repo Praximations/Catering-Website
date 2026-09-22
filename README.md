@@ -102,8 +102,10 @@ Google sign-in uses Supabase Auth with the server-side PKCE flow. Email and
 password login remains available. To enable the Google button:
 
 1. Enable Google in Supabase Auth and add the Google client ID and secret.
-2. In Supabase URL Configuration, allow `http://localhost:3100/auth/callback`
-   and `https://your-domain.example/auth/callback`.
+2. In Supabase URL Configuration, allow the callback for the port you use,
+   such as `http://localhost:3000/auth/callback` or
+   `http://localhost:3100/auth/callback`, plus
+   `https://your-domain.example/auth/callback`.
 3. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SITE_URL` in
    `.env.local` and in Vercel.
 
