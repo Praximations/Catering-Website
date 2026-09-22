@@ -3,6 +3,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { business } from "@/lib/business";
 import { getCart } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/session";
+import { AboutIcon, ContactIcon, MenuIcon, OrderIcon } from "@/components/icons";
 
 /**
  * The header knows who is signed in, but it is NOT what keeps anyone out.
@@ -14,9 +15,10 @@ import { getCurrentUser } from "@/lib/session";
  */
 
 const links = [
-  { href: "/menu", label: "Menu" },
-  { href: "/shop", label: "Order" },
-  { href: "/about", label: "About" },
+  { href: "/menu", label: "Menu", icon: MenuIcon },
+  { href: "/shop", label: "Order", icon: OrderIcon },
+  { href: "/about", label: "About", icon: AboutIcon },
+  { href: "/contact", label: "Contact", icon: ContactIcon },
 ];
 
 export async function SiteHeader() {
@@ -38,13 +40,14 @@ export async function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="order-3 flex w-full flex-wrap items-center gap-x-5 gap-y-2 text-sm sm:order-none sm:w-auto sm:flex-1">
+        <nav className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:order-none sm:w-auto sm:flex-1">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="font-medium text-ink-muted transition-colors hover:text-accent-strong"
+              className="group inline-flex items-center gap-1.5 font-medium text-ink-muted transition-colors hover:text-accent-strong"
             >
+              <link.icon className="size-4 text-ink-subtle transition-colors group-hover:text-highlight" />
               {link.label}
             </Link>
           ))}

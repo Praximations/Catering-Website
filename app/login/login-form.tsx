@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { loginAction, type FormState } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, inputClass } from "@/components/ui";
+import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 
 export function LoginForm() {
   const [state, formAction] = useActionState<FormState | undefined, FormData>(
@@ -22,6 +22,7 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           required
+          placeholder="you@example.com"
           className={inputClass}
         />
       </Field>
@@ -33,11 +34,14 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
+          placeholder="Your password"
           className={inputClass}
         />
       </Field>
 
-      <SubmitButton pendingLabel="Signing in...">Sign in</SubmitButton>
+      <SubmitButton pendingLabel="Signing in..." className={`${buttonClass} w-full`}>
+        Sign in
+      </SubmitButton>
     </form>
   );
 }

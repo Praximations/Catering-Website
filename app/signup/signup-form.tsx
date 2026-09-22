@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { signupAction, type FormState } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, inputClass } from "@/components/ui";
+import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 
 export function SignupForm() {
   const [state, formAction] = useActionState<FormState | undefined, FormData>(
@@ -22,6 +22,7 @@ export function SignupForm() {
           name="name"
           type="text"
           autoComplete="name"
+          placeholder="Your name"
           className={inputClass}
           aria-invalid={Boolean(errors.name)}
         />
@@ -33,6 +34,7 @@ export function SignupForm() {
           name="email"
           type="email"
           autoComplete="email"
+          placeholder="you@example.com"
           className={inputClass}
           aria-invalid={Boolean(errors.email)}
         />
@@ -49,12 +51,15 @@ export function SignupForm() {
           name="password"
           type="password"
           autoComplete="new-password"
+          placeholder="Create a password"
           className={inputClass}
           aria-invalid={Boolean(errors.password)}
         />
       </Field>
 
-      <SubmitButton pendingLabel="Creating...">Create account</SubmitButton>
+      <SubmitButton pendingLabel="Creating..." className={`${buttonClass} w-full`}>
+        Create account
+      </SubmitButton>
     </form>
   );
 }
