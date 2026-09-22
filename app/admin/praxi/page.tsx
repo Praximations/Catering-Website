@@ -23,6 +23,9 @@ import { MintKey } from "./mint-key";
 
 export const metadata: Metadata = {
   title: "Praxi",
+  // Signed in only, and nothing here is for a search engine. robots.ts says so
+  // too; this is the copy a crawler sees on the page itself.
+  robots: { index: false, follow: false },
 };
 
 const CATEGORY_ORDER: CapabilityCategory[] = [

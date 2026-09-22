@@ -116,3 +116,38 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
     </div>
   );
 }
+
+/**
+ * The placeholder a slow page shows while its data loads.
+ *
+ * Shaped like the page it stands in for rather than being a spinner, so the
+ * layout does not jump when the real content arrives. aria-hidden with a
+ * single live region: a screen reader should hear "loading" once, not read out
+ * a dozen empty boxes.
+ */
+export function SkeletonPage({ eyebrow, rows = 3 }: { eyebrow: string; rows?: number }) {
+  return (
+    <main className="mx-auto w-full max-w-6xl px-6 py-16">
+      <p className="sr-only" role="status" aria-live="polite">
+        Loading {eyebrow.toLowerCase()}
+      </p>
+      <div aria-hidden className="animate-pulse">
+        <p className="eyebrow">{eyebrow}</p>
+        <div className="mt-3 h-11 w-2/3 max-w-md rounded-md bg-raised" />
+        <div className="mt-4 h-4 w-full max-w-xl rounded-sm bg-raised" />
+
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="h-24 rounded-md border border-line bg-raised/50" />
+          ))}
+        </div>
+
+        <div className="mt-10 space-y-4">
+          {Array.from({ length: rows }, (_, index) => (
+            <div key={index} className="h-28 rounded-lg border border-line bg-raised/40" />
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}

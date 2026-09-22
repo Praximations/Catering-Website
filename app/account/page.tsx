@@ -21,7 +21,12 @@ import { formatMoney } from "@/lib/shop";
 import { isPaymentConfigured } from "@/lib/payments";
 import type { CustomerOrder } from "@/lib/orders";
 
-export const metadata: Metadata = { title: "Customer portal" };
+export const metadata: Metadata = {
+  title: "Customer portal",
+  // Signed in only, and nothing here is for a search engine. robots.ts says so
+  // too; this is the copy a crawler sees on the page itself.
+  robots: { index: false, follow: false },
+};
 
 function OrderCard({ order, current }: { order: CustomerOrder; current: boolean }) {
   return (
