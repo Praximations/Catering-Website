@@ -11,10 +11,10 @@
 export const business = {
   name: "Your Catering Co.",
   /** One line, used under the name and in metadata. */
-  tagline: "Food for the days that matter",
+  tagline: "Generous food, made for gathering",
   /** Two or three sentences, used on the home page and About. */
   blurb:
-    "We cook for weddings, birthdays, wakes, office lunches, and the ordinary Tuesdays that deserve better than a sandwich tray. Everything is made from scratch, and we only take on what we can cook properly.",
+    "Fresh, thoughtful catering for office lunches, celebrations, and the days that bring people together. Choose a ready-to-order spread or ask us to shape something around your event.",
   email: "hello@example.com",
   phone: "(555) 010-0000",
   serviceArea: "Placeholder County and about an hour around it",

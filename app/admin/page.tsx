@@ -3,7 +3,7 @@ import Link from "next/link";
 import { updateEnquiryAction } from "@/app/actions/enquiries";
 import { updateOrderAction } from "@/app/actions/orders";
 import { StatusBadge, formatEventDate, formatSentAt, packageLabel } from "@/components/enquiry";
-import { OrderLines, OrderStatusBadge } from "@/components/order";
+import { OrderLines, OrderStatusBadge, PaymentBadge } from "@/components/order";
 import { SubmitButton } from "@/components/submit-button";
 import { EmptyState, PageHeader, inputClass, secondaryButtonClass } from "@/components/ui";
 import { countPendingApprovals } from "@/lib/control";
@@ -118,7 +118,10 @@ export default async function AdminPage() {
                       {formatMoney(order.subtotalMinor)}
                     </p>
                   </div>
-                  <OrderStatusBadge status={order.status} />
+                  <div className="flex flex-wrap gap-2">
+                    <PaymentBadge status={order.paymentStatus} />
+                    <OrderStatusBadge status={order.status} />
+                  </div>
                 </div>
 
                 <OrderLines lines={order.lines} />

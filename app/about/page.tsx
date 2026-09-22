@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, buttonClass } from "@/components/ui";
+import { PageHeader } from "@/components/ui";
 import { business, isPlaceholderBusiness } from "@/lib/business";
 
 export const metadata: Metadata = {
@@ -8,93 +8,90 @@ export const metadata: Metadata = {
   description: `About ${business.name}.`,
 };
 
-/**
- * About. Short on purpose: nobody has decided whose kitchen this is, so
- * this page carries the few things the site does know (how we work, what
- * we need to know, how to reach us) and says plainly that the story is
- * still to be written rather than inventing one.
- */
+const steps = [
+  {
+    number: "01",
+    title: "Tell us what matters",
+    body: "Send the date, guest count, venue, and dietary needs. A direct online order is enough for standard lunch delivery.",
+  },
+  {
+    number: "02",
+    title: "We confirm the plan",
+    body: "We check the diary, confirm the menu, and send one clear price. Nothing is charged before that conversation.",
+  },
+  {
+    number: "03",
+    title: "We cook and deliver",
+    body: "Everything is prepared for your date, labeled clearly, and brought ready to serve or set up as agreed.",
+  },
+];
+
 export default function AboutPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-16">
-      <PageHeader eyebrow="About" title={`About ${business.name}`} lede={business.blurb} />
+    <main className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-6 sm:py-18">
+      <PageHeader eyebrow="How it works" title="Catering without the guesswork." lede={business.blurb} />
 
-      <div className="space-y-10">
-        <section>
-          <h2 className="font-display text-xl text-ink">How it works</h2>
-          <ol className="mt-4 space-y-4 text-ink-muted">
-            <li className="flex gap-4">
-              <span className="font-display text-lg text-accent-strong">1</span>
-              <p>
-                You send the date, a rough head count, and anything we should know. That is the
-                quote form, and it takes a minute.
-              </p>
-            </li>
-            <li className="flex gap-4">
-              <span className="font-display text-lg text-accent-strong">2</span>
-              <p>
-                We reply with a menu and a price, usually within a day or two. If we are already
-                booked that day we will say so straight away.
-              </p>
-            </li>
-            <li className="flex gap-4">
-              <span className="font-display text-lg text-accent-strong">3</span>
-              <p>
-                We adjust until it is right, then we cook it. You can check where your enquiry
-                stands any time from your account.
-              </p>
-            </li>
-          </ol>
-        </section>
+      <ol className="grid border-y border-line md:grid-cols-3">
+        {steps.map((step, index) => (
+          <li
+            key={step.number}
+            className={`py-8 md:px-8 ${index > 0 ? "border-t border-line md:border-l md:border-t-0" : ""}`}
+          >
+            <span className="text-xs font-semibold text-highlight">{step.number}</span>
+            <h2 className="mt-4 font-display text-2xl text-ink">{step.title}</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">{step.body}</p>
+          </li>
+        ))}
+      </ol>
 
-        <section>
-          <h2 className="font-display text-xl text-ink">The practical bits</h2>
-          <dl className="mt-4 divide-y divide-line border-y border-line text-sm">
-            <div className="flex justify-between gap-6 py-3">
-              <dt className="text-ink-muted">Notice we need</dt>
-              <dd className="text-ink">About {business.leadTimeDays} days</dd>
-            </div>
-            <div className="flex justify-between gap-6 py-3">
-              <dt className="text-ink-muted">Smallest booking</dt>
-              <dd className="text-ink">{business.minimumGuests} people</dd>
-            </div>
-            <div className="flex justify-between gap-6 py-3">
-              <dt className="text-ink-muted">Where we cook</dt>
-              <dd className="text-ink">{business.serviceArea}</dd>
-            </div>
-            <div className="flex justify-between gap-6 py-3">
-              <dt className="text-ink-muted">Dietary needs</dt>
-              <dd className="text-ink">Tell us on the form, we cook around them</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl text-ink">Get in touch</h2>
-          <p className="mt-3 text-ink-muted">
-            The quote form is the fastest way to reach us, but you are welcome to email{" "}
-            <a href={`mailto:${business.email}`} className="text-accent-strong hover:underline">
-              {business.email}
-            </a>{" "}
-            or call{" "}
-            <a
-              href={`tel:${business.phone.replace(/[^\d+]/g, "")}`}
-              className="text-accent-strong hover:underline"
-            >
-              {business.phone}
-            </a>
-            .
+      <section className="mt-16 grid gap-10 rounded-lg bg-raised p-7 sm:p-10 lg:grid-cols-[0.8fr_1.2fr]">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-highlight">
+            The practical details
           </p>
-          <Link href="/quote" className={`${buttonClass} mt-6`}>
-            Request a quote
-          </Link>
-        </section>
-      </div>
+          <h2 className="mt-3 font-display text-3xl tracking-tight text-ink">
+            Simple, clear, and planned properly.
+          </h2>
+        </div>
+        <dl className="divide-y divide-line text-sm">
+          <div className="flex justify-between gap-6 py-4 first:pt-0">
+            <dt className="text-ink-muted">Notice we need</dt>
+            <dd className="font-semibold text-ink">About {business.leadTimeDays} days</dd>
+          </div>
+          <div className="flex justify-between gap-6 py-4">
+            <dt className="text-ink-muted">Event minimum</dt>
+            <dd className="font-semibold text-ink">{business.minimumGuests} people</dd>
+          </div>
+          <div className="flex justify-between gap-6 py-4">
+            <dt className="text-ink-muted">Sandwich minimum</dt>
+            <dd className="font-semibold text-ink">50 sandwiches</dd>
+          </div>
+          <div className="flex justify-between gap-6 py-4">
+            <dt className="text-ink-muted">Dietary needs</dt>
+            <dd className="max-w-xs text-right font-semibold text-ink">Clearly labeled and planned with you</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="mt-12 flex flex-col gap-6 rounded-lg bg-accent px-7 py-9 text-on-accent sm:flex-row sm:items-center sm:justify-between sm:px-9">
+        <div>
+          <h2 className="font-display text-2xl">Have a date in mind?</h2>
+          <p className="mt-2 text-sm text-on-accent/75">
+            Choose the food, reserve your date, and we will confirm the details with you.
+          </p>
+        </div>
+        <Link
+          href="/shop"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-surface px-5 py-2.5 text-sm font-semibold text-accent-strong shadow-sm transition-transform hover:-translate-y-0.5"
+        >
+          Start an order
+        </Link>
+      </section>
 
       {isPlaceholderBusiness ? (
-        <p className="mt-12 border-t border-line pt-6 text-xs text-ink-subtle">
-          Whose kitchen this is has not been decided yet, so this page describes how the site
-          works rather than inventing a history. The details live in lib/business.ts.
+        <p className="mt-10 border-t border-line pt-6 text-xs text-ink-subtle">
+          The business name and contact details are placeholders. Set the final details in
+          lib/business.ts.
         </p>
       ) : null}
     </main>

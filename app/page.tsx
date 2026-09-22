@@ -1,82 +1,179 @@
+import Image from "next/image";
 import Link from "next/link";
 import { buttonClass, secondaryButtonClass } from "@/components/ui";
 import { business } from "@/lib/business";
 import { menu } from "@/lib/menu";
+import { formatMoney, products } from "@/lib/shop";
 
-/**
- * The home page. One job: say what this kitchen does, and put the quote
- * form one click away. Everything it renders comes from lib/business.ts
- * and lib/menu.ts, so none of the copy is stranded in markup.
- */
+const sandwichAssortments = products
+  .filter((product) => product.category === "sandwich")
+  .slice(0, 3);
+
+const occasions = [
+  { number: "01", title: "Workdays", copy: "Breakfasts, boardrooms, team lunches, and office milestones." },
+  { number: "02", title: "Celebrations", copy: "Birthdays, showers, graduations, and the people you want around the table." },
+  { number: "03", title: "Full rooms", copy: "Openings, launches, fundraisers, and effortless food for a crowd." },
+];
+
 export default function Home() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-16 sm:py-24">
-      <section className="max-w-2xl">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle">
-          {business.serviceArea}
-        </p>
-        <h1 className="mt-4 font-display text-4xl leading-[1.1] tracking-tight text-ink sm:text-6xl">
-          {business.tagline}
-        </h1>
-        <p className="mt-6 text-lg leading-relaxed text-ink-muted">{business.blurb}</p>
+    <main>
+      <section className="overflow-hidden border-b border-line">
+        <div className="mx-auto grid min-h-[calc(100svh-8rem)] w-full max-w-[90rem] lg:grid-cols-[0.87fr_1.13fr]">
+          <div className="flex items-center px-5 py-16 sm:px-10 sm:py-24 lg:px-16 xl:px-24">
+            <div className="max-w-xl">
+              <p className="eyebrow">Gather well</p>
+              <h1 className="mt-6 font-display text-[3.55rem] leading-[0.94] tracking-[-0.052em] text-ink sm:text-7xl xl:text-[5.6rem]">
+                Good food makes <span className="font-normal italic text-accent">the occasion.</span>
+              </h1>
+              <p className="mt-7 max-w-lg text-lg leading-8 text-ink-muted sm:text-xl">
+                {business.blurb}
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <Link href="/shop" className={buttonClass}>
+                  Start an order <span aria-hidden>↗</span>
+                </Link>
+                <Link href="/menu" className={secondaryButtonClass}>
+                  Explore the menu
+                </Link>
+              </div>
+              <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-line pt-6 text-sm text-ink-muted">
+                <p><strong className="font-semibold text-ink">Made fresh</strong><br />for your event</p>
+                <p><strong className="font-semibold text-ink">Flexible menus</strong><br />for every table</p>
+                <p><strong className="font-semibold text-ink">Thoughtful service</strong><br />from start to finish</p>
+              </div>
+            </div>
+          </div>
 
-        <div className="mt-9 flex flex-wrap gap-3">
-          <Link href="/shop" className={buttonClass}>
-            Order online
-          </Link>
-          <Link href="/quote" className={secondaryButtonClass}>
-            Request a quote
+          <div className="relative min-h-[31rem] bg-raised lg:min-h-full">
+            <Image
+              src="/images/gathered-table-hero.png"
+              alt="A sunlit catered table with artisan sandwiches, seasonal salads, and shared plates"
+              fill
+              priority
+              sizes="(min-width: 1024px) 57vw, 100vw"
+              className="object-cover"
+            />
+            <div className="absolute bottom-6 left-6 max-w-[15rem] bg-surface/95 p-4 shadow-lg backdrop-blur sm:bottom-8 sm:left-8">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-highlight">At your table</p>
+              <p className="mt-2 font-display text-xl leading-tight text-ink">Seasonal food, prepared to share.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
+          <div>
+            <p className="eyebrow">Catering, considered</p>
+            <h2 className="mt-4 font-display text-4xl leading-[1.02] tracking-[-0.035em] text-ink sm:text-5xl">
+              The easiest part of bringing people together.
+            </h2>
+          </div>
+          <div className="grid gap-px bg-line sm:grid-cols-3">
+            {occasions.map((occasion) => (
+              <article key={occasion.number} className="bg-page p-6 sm:min-h-56 sm:p-7">
+                <p className="text-xs font-bold tracking-[0.14em] text-highlight">{occasion.number}</p>
+                <h3 className="mt-12 font-display text-2xl text-ink">{occasion.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-ink-muted">{occasion.copy}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-line bg-raised/55">
+        <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 sm:py-24">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-2xl">
+              <p className="eyebrow">The lunch edit</p>
+              <h2 className="mt-4 font-display text-4xl tracking-[-0.035em] text-ink sm:text-5xl">
+                Sandwiches worth gathering for.
+              </h2>
+            </div>
+            <Link href="/shop#sandwich" className="text-sm font-bold text-accent hover:text-accent-strong">
+              Shop all catering <span aria-hidden>→</span>
+            </Link>
+          </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {sandwichAssortments.map((product, index) => (
+              <Link key={product.slug} href="/shop#sandwich" className="group block">
+                <div className={`relative overflow-hidden bg-surface ${index === 1 ? "md:mt-10" : ""}`}>
+                  <div className="relative aspect-[4/3] overflow-hidden">
+                    <Image
+                      src={product.image!}
+                      alt={product.imageAlt ?? product.name}
+                      fill
+                      sizes="(min-width: 768px) 32vw, 100vw"
+                      className="object-cover transition duration-700 group-hover:scale-[1.035]"
+                    />
+                  </div>
+                  <div className="flex items-start justify-between gap-5 p-5 sm:p-6">
+                    <div>
+                      <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-highlight">Collection 0{index + 1}</p>
+                      <h3 className="mt-2 font-display text-2xl leading-tight text-ink">{product.name}</h3>
+                    </div>
+                    <p className="shrink-0 font-semibold text-accent">
+                      {formatMoney(product.priceMinor)}
+                      <span className="block text-right text-[0.65rem] font-medium text-ink-subtle">each</span>
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid w-full max-w-7xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[0.72fr_1.28fr] lg:gap-24">
+        <div className="lg:sticky lg:top-32 lg:self-start">
+          <p className="eyebrow">Menus with range</p>
+          <h2 className="mt-4 font-display text-4xl leading-tight tracking-[-0.035em] text-ink sm:text-5xl">
+            Built around your kind of gathering.
+          </h2>
+          <p className="mt-5 max-w-md text-base leading-7 text-ink-muted">
+            Start with one of our signatures, then tell us what the room, the season, and your guests need.
+          </p>
+          <Link href="/quote" className={`${secondaryButtonClass} mt-7`}>
+            Plan something custom
           </Link>
         </div>
 
-        <p className="mt-5 text-sm text-ink-subtle">
-          Order platters and packages straight from the site, or ask us to quote something bigger.
-          We need about {business.leadTimeDays} days notice, and we cook for{" "}
-          {business.minimumGuests} people or more.
-        </p>
-      </section>
-
-      <section className="mt-20 border-t border-line pt-12">
-        <h2 className="font-display text-2xl tracking-tight text-ink">How we cook for you</h2>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {menu.map((pkg) => (
+        <div className="divide-y divide-line border-y border-line">
+          {menu.map((pkg, index) => (
             <Link
               key={pkg.slug}
               href={`/menu#${pkg.slug}`}
-              className="group rounded-lg border border-line bg-surface p-5 transition-colors hover:border-accent"
+              className="group grid gap-4 py-7 sm:grid-cols-[3rem_1fr_auto] sm:items-center sm:py-9"
             >
-              <h3 className="font-display text-lg text-ink">{pkg.name}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{pkg.summary}</p>
-              <p className="mt-4 text-sm font-medium text-accent-strong">
-                {pkg.pricePerPerson === null
-                  ? "Quoted per event"
-                  : `From $${pkg.pricePerPerson} a head`}
+              <span className="text-xs font-bold tracking-[0.14em] text-highlight">0{index + 1}</span>
+              <div>
+                <h3 className="font-display text-2xl text-ink transition-colors group-hover:text-accent">{pkg.name}</h3>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-ink-muted">{pkg.summary}</p>
+              </div>
+              <p className="text-sm font-semibold text-accent">
+                {pkg.pricePerPerson === null ? "Custom quote" : `From $${pkg.pricePerPerson} per guest`}
+                <span aria-hidden className="ml-3 inline-block transition-transform group-hover:translate-x-1">→</span>
               </p>
             </Link>
           ))}
         </div>
       </section>
 
-      <section className="mt-20 grid gap-6 sm:grid-cols-2">
-        <div className="rounded-lg border border-line bg-raised px-6 py-8">
-          <h2 className="font-display text-xl text-ink">Know what you want</h2>
-          <p className="mt-3 text-ink-muted">
-            Order platters and by the head straight from the site. Nothing is charged up front: we
-            confirm the date, then invoice.
-          </p>
-          <Link href="/shop" className={`${buttonClass} mt-6`}>
-            Order online
-          </Link>
-        </div>
-        <div className="rounded-lg border border-line bg-raised px-6 py-8">
-          <h2 className="font-display text-xl text-ink">Something bigger</h2>
-          <p className="mt-3 text-ink-muted">
-            Weddings and anything unusual are quoted. Send the date, a rough head count, and
-            anything we should know.
-          </p>
-          <Link href="/quote" className={`${secondaryButtonClass} mt-6`}>
-            Request a quote
-          </Link>
+      <section className="px-5 pb-8 sm:px-8">
+        <div className="mx-auto grid w-full max-w-7xl overflow-hidden bg-accent text-on-accent lg:grid-cols-[1fr_auto]">
+          <div className="px-7 py-12 sm:px-12 sm:py-16">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-on-accent/65">Your date, our table</p>
+            <h2 className="mt-4 max-w-3xl font-display text-4xl leading-tight tracking-[-0.03em] sm:text-5xl">
+              Tell us who is coming. We will take care of what they eat.
+            </h2>
+          </div>
+          <div className="flex items-center border-t border-on-accent/20 px-7 py-8 lg:border-l lg:border-t-0 lg:px-12">
+            <Link href="/quote" className="inline-flex min-h-12 items-center justify-center bg-surface px-6 text-sm font-bold text-accent shadow-sm transition-transform hover:-translate-y-0.5">
+              Request a proposal <span aria-hidden className="ml-2">↗</span>
+            </Link>
+          </div>
         </div>
       </section>
     </main>

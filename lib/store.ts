@@ -1,21 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import {
+  createSupabaseState,
+  isSupabaseConfigured,
+  isSupabasePartiallyConfigured,
+  readSupabaseState,
+  replaceSupabaseState,
+} from "./supabase";
 
 /**
- * Storage, deliberately the simplest thing that is not a lie.
+ * One storage contract with two adapters.
  *
- * This site has no database and no hosting yet, so data lives in ONE JSON
- * file on disk. That is enough to run the whole thing locally and to see
- * real enquiries come through, and it is honest about what it is: there is
- * no migration story, no concurrent-writer story beyond the queue below,
- * and no story at all on a read-only filesystem.
- *
- * WHEN THIS SITE IS DEPLOYED, THIS FILE IS WHAT GETS REPLACED. Serverless
- * hosts (Vercel included) have a read-only filesystem and no shared disk
- * between instances, so writes here would either fail or vanish. Swapping
- * in Postgres, SQLite, or Supabase means rewriting this module and nothing
- * above it: everything else goes through readData/updateData.
+ * Local development uses a JSON file with no setup. Vercel uses a private
+ * Supabase row when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.
+ * Optimistic version checks prevent two serverless writers from silently
+ * replacing one another.
  */
 
 export interface UserRecord {
@@ -56,7 +56,7 @@ export interface OrderLine {
   slug: string;
   /** Snapshotted, so changing the catalog never rewrites an old order. */
   name: string;
-  unit: "person" | "item";
+  unit: "person" | "item" | "sandwich";
   unitPriceMinor: number;
   quantity: number;
   lineTotalMinor: number;
@@ -87,6 +87,9 @@ export interface OrderRecord {
   lines: OrderLine[];
   subtotalMinor: number;
   status: OrderStatus;
+  paymentStatus: "unpaid" | "paid";
+  stripeCheckoutSessionId: string | null;
+  paidAt: string | null;
   /** Private to the owner, same rule as enquiries. */
   ownerNotes: string;
   createdAt: string;
@@ -167,7 +170,7 @@ export interface AnnouncementRecord {
   setAt: string;
 }
 
-interface Data {
+export interface Data {
   users: UserRecord[];
   enquiries: EnquiryRecord[];
   orders: OrderRecord[];
@@ -197,26 +200,44 @@ const FILE = process.env.DATA_FILE
   ? join(process.cwd(), process.env.DATA_FILE)
   : join(process.cwd(), "data", "catering.json");
 
-async function load(): Promise<Data> {
+function requireProductionStorage(): void {
+  if (isSupabasePartiallyConfigured) {
+    throw new Error("Set both SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, or neither.");
+  }
+  if (process.env.VERCEL && !isSupabaseConfigured) {
+    throw new Error("Supabase must be configured for persistent storage on Vercel.");
+  }
+}
+
+function normalize(parsed: Partial<Data>): Data {
+  const record = <T>(value: unknown): Record<string, T> =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, T>)
+      : {};
+  return {
+    users: Array.isArray(parsed.users) ? parsed.users : [],
+    enquiries: Array.isArray(parsed.enquiries) ? parsed.enquiries : [],
+    orders: Array.isArray(parsed.orders)
+      ? parsed.orders.map((order) => ({
+          ...order,
+          paymentStatus: order.paymentStatus ?? "unpaid",
+          stripeCheckoutSessionId: order.stripeCheckoutSessionId ?? null,
+          paidAt: order.paidAt ?? null,
+        }))
+      : [],
+    controlKeys: Array.isArray(parsed.controlKeys) ? parsed.controlKeys : [],
+    permissions: record<PermissionMode>(parsed.permissions),
+    approvals: Array.isArray(parsed.approvals) ? parsed.approvals : [],
+    auditLog: Array.isArray(parsed.auditLog) ? parsed.auditLog : [],
+    productOverrides: record<ProductOverride>(parsed.productOverrides),
+    announcement: (parsed.announcement as AnnouncementRecord | null) ?? null,
+  };
+}
+
+async function loadFile(): Promise<Data> {
   try {
     const parsed = JSON.parse(await readFile(FILE, "utf8")) as Partial<Data>;
-    // Each collection defaults independently, so a file written before a
-    // collection existed still loads instead of blowing up on undefined.
-    const record = <T>(value: unknown): Record<string, T> =>
-      value && typeof value === "object" && !Array.isArray(value)
-        ? (value as Record<string, T>)
-        : {};
-    return {
-      users: Array.isArray(parsed.users) ? parsed.users : [],
-      enquiries: Array.isArray(parsed.enquiries) ? parsed.enquiries : [],
-      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
-      controlKeys: Array.isArray(parsed.controlKeys) ? parsed.controlKeys : [],
-      permissions: record<PermissionMode>(parsed.permissions),
-      approvals: Array.isArray(parsed.approvals) ? parsed.approvals : [],
-      auditLog: Array.isArray(parsed.auditLog) ? parsed.auditLog : [],
-      productOverrides: record<ProductOverride>(parsed.productOverrides),
-      announcement: (parsed.announcement as AnnouncementRecord | null) ?? null,
-    };
+    return normalize(parsed);
   } catch {
     // No file yet (first run), or a file we cannot parse. Either way an
     // empty database is the right answer; the first write creates it.
@@ -229,7 +250,7 @@ async function load(): Promise<Data> {
  * filesystem we care about, so a crash mid-write leaves the old file
  * intact rather than a truncated one.
  */
-async function save(data: Data): Promise<void> {
+async function saveFile(data: Data): Promise<void> {
   await mkdir(dirname(FILE), { recursive: true });
   const temp = `${FILE}.${randomUUID()}.tmp`;
   await writeFile(temp, `${JSON.stringify(data, null, 2)}\n`, "utf8");
@@ -248,14 +269,38 @@ async function save(data: Data): Promise<void> {
 let queue: Promise<unknown> = Promise.resolve();
 
 export function readData(): Promise<Data> {
-  return load();
+  requireProductionStorage();
+  if (!isSupabaseConfigured) return loadFile();
+  return readSupabaseState<Data>().then(async (row) => {
+    if (row) return normalize(row.data);
+    await createSupabaseState(EMPTY);
+    return normalize((await readSupabaseState<Data>())?.data ?? EMPTY);
+  });
 }
 
 export function updateData<T>(mutate: (data: Data) => T | Promise<T>): Promise<T> {
+  requireProductionStorage();
+  if (isSupabaseConfigured) {
+    return (async () => {
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        let row = await readSupabaseState<Data>();
+        if (!row) {
+          await createSupabaseState(EMPTY);
+          row = await readSupabaseState<Data>();
+        }
+        if (!row) throw new Error("Supabase app state could not be initialized.");
+        const data = normalize(structuredClone(row.data));
+        const result = await mutate(data);
+        if (await replaceSupabaseState(data, row.version)) return result;
+      }
+      throw new Error("Supabase update was busy. Please try again.");
+    })();
+  }
+
   const run = queue.then(async () => {
-    const data = await load();
+    const data = await loadFile();
     const result = await mutate(data);
-    await save(data);
+    await saveFile(data);
     return result;
   });
   // Keep the chain alive even when a caller's mutation throws, otherwise

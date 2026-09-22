@@ -117,14 +117,19 @@ export const menu: MenuPackage[] = [
   },
   {
     slug: "office",
-    name: "Office lunch",
+    name: "Team lunch",
     pricePerPerson: 18,
     summary:
-      "Dropped off, set up, and cleared away. No staff stay on. Ordered by the tray.",
+      "Fresh sandwich assortments, salads, fruit, and something sweet. Dropped off ready for the table.",
     items: [
       {
-        name: "Sandwich platters",
-        description: "Real bread, generous filling, cut properly.",
+        name: "Classic sandwich assortment",
+        description: "Turkey, roast beef, lemon chicken, mature cheddar, and hummus. Minimum 50 sandwiches.",
+      },
+      {
+        name: "Vegetarian sandwich assortment",
+        description: "Five balanced fillings with no meat, clearly labeled and packed separately. Minimum 50 sandwiches.",
+        tags: ["vegetarian"],
       },
       {
         name: "Two salads",

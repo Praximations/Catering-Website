@@ -25,7 +25,7 @@ if you want to set any of it.
 
     /                 home
     /menu             the four packages and their dishes
-    /shop             order online, by the head or by the platter
+    /shop             order bulk sandwiches, packages, platters, and extras
     /cart             the cart and checkout
     /orders/[token]   order confirmation, reachable by its own link
     /about            how booking works and the practical details
@@ -37,10 +37,15 @@ if you want to set any of it.
                       private notes
     /admin/praxi      what Praxi may do, what it has asked for, what it did
 
-## Ordering
+## Ordering and payments
 
 The shop is the Shopify-shaped half: products in `lib/shop.ts`, a cart in
 a cookie, checkout, orders, and statuses the owner moves along.
+
+The sample catalog includes three sandwich assortments sold per sandwich,
+with a minimum of 50 for each assortment. The browser quantity controls show
+the minimum, and checkout verifies it again on the server before an order can
+be placed.
 
 Two rules it will not bend on:
 
@@ -48,10 +53,9 @@ Two rules it will not bend on:
   quantities only; every total is recomputed server side from the catalog.
   A cookie is editable, so a price out of one would be a price the
   customer chose.
-- **There is no card payment, and nothing pretends there is.** An order is
-  placed, the kitchen confirms the date, and the invoice happens off the
-  site. That is how catering actually works, and a fake payment step would
-  be worse than no payment step.
+- **Payment is optional and verifiable.** The order is saved first. When
+  Stripe is configured, the confirmation page offers hosted Stripe Checkout.
+  Only a signed Stripe webhook marks an order paid.
 
 An order's confirmation page is addressed by an unguessable token rather
 than the order id or the reference number, so a guest can return to their
@@ -161,18 +165,16 @@ Reads are shaped by hand, so private notes and password hashes are not in
 what Praxi gets back. Revoking a key stops it on the next call; nothing is
 cached.
 
-## Storage, and the thing to fix before deploying
+## Supabase and Vercel
 
-Data lives in one JSON file, `data/catering.json`, written through
-`lib/store.ts`. That is deliberate: this site has no database and no
-hosting yet, and a file is enough to run the whole thing locally and see
-real enquiries arrive.
+Local development still works with `data/catering.json`. In production,
+set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` and the same storage
+contract uses a private Supabase row with optimistic concurrency. Run
+`supabase/schema.sql` once in the Supabase SQL editor before deploying.
 
-It will NOT survive deployment. Serverless hosts have a read-only
-filesystem and no shared disk between instances, so writes would fail or
-vanish. Replacing `lib/store.ts` with Postgres, SQLite, or Supabase is the
-one change needed, and nothing above it has to move: everything goes
-through `readData` and `updateData`.
+For Vercel, also set `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, and the Stripe
+variables from `.env.example`. In Stripe, add a webhook ending in
+`/api/stripe/webhook` and subscribe it to `checkout.session.completed`.
 
 `data/` is gitignored. Real accounts and real enquiries do not belong in
 git.

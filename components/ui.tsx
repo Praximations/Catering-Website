@@ -10,13 +10,13 @@ import type { ReactNode } from "react";
  */
 
 export const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3 text-sm font-bold text-on-accent shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent-strong hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60";
 
 export const secondaryButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-md border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-sm border border-line bg-surface px-6 py-3 text-sm font-bold text-ink shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 export const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
+  "w-full rounded-md border border-line bg-surface px-3.5 py-3 text-sm text-ink shadow-sm placeholder:text-ink-subtle focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
 
 export function Field({
   label,
@@ -47,7 +47,7 @@ export function Field({
       {/* aria-live so a screen reader hears the error when it appears,
           rather than only on the next focus. */}
       {error ? (
-        <p id={errorId} aria-live="polite" className="text-xs text-accent-strong">
+        <p id={errorId} aria-live="polite" className="text-xs font-medium text-highlight">
           {error}
         </p>
       ) : null}
@@ -66,10 +66,10 @@ export function Alert({
 }) {
   const toneClass =
     tone === "error"
-      ? "border-accent-strong/40 bg-accent/5"
+      ? "border-highlight/30 bg-highlight-soft"
       : tone === "success"
         ? "border-accent/40 bg-accent/5"
-        : "border-line bg-raised";
+        : "border-line bg-raised/70";
   return (
     <div
       role={tone === "error" ? "alert" : undefined}
@@ -83,7 +83,7 @@ export function Alert({
 
 export function Badge({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-sm border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">
+    <span className="inline-flex items-center rounded-full bg-raised px-2.5 py-1 text-xs font-semibold text-accent-strong">
       {children}
     </span>
   );
@@ -92,11 +92,11 @@ export function Badge({ children }: { children: ReactNode }) {
 /** A page title with an optional line under it. Used by every page but home. */
 export function PageHeader({ eyebrow, title, lede }: { eyebrow?: string; title: string; lede?: string }) {
   return (
-    <header className="mb-10">
+    <header className="mb-12 max-w-2xl">
       {eyebrow ? (
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle">{eyebrow}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-highlight">{eyebrow}</p>
       ) : null}
-      <h1 className="mt-3 font-display text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
+      <h1 className="mt-3 font-display text-4xl leading-tight tracking-[-0.025em] text-ink sm:text-5xl">
         {title}
       </h1>
       {lede ? <p className="mt-4 max-w-xl text-lg leading-relaxed text-ink-muted">{lede}</p> : null}
@@ -110,7 +110,7 @@ export function PageHeader({ eyebrow, title, lede }: { eyebrow?: string; title: 
  */
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-line bg-surface px-6 py-12 text-center">
+    <div className="rounded-lg bg-raised/70 px-6 py-14 text-center">
       <p className="font-medium text-ink">{title}</p>
       {children ? <div className="mt-2 text-sm text-ink-muted">{children}</div> : null}
     </div>

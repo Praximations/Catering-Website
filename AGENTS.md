@@ -20,12 +20,12 @@ business is, the palette, and the type.
 
 - Next.js 16.2.10 (App Router, webpack), React 19.2.4, TypeScript,
   Tailwind v4. Pinned to match `praximations-web-new`.
-- **Zero runtime dependencies.** Auth, hashing, sessions, and storage are
-  all built on the Node standard library. Do not add a dependency without
-  asking; there is a reason this list is empty.
+- **Zero third-party runtime dependencies.** Auth, hashing, sessions,
+  Supabase REST, and Stripe REST use the platform and Node standard library.
 - Design tokens live in `app/globals.css` and reach Tailwind through
   `@theme inline`: `bg-page`, `text-ink-muted`, `border-line`,
-  `font-display`, and `rounded-sm/md/lg`. Use those, never arbitrary hex.
+  `font-display`, and `rounded-sm/md/lg`. The public palette is white,
+  botanical green, and one warm food accent. Use the tokens, never arbitrary hex.
 - Business details live in `lib/business.ts`, ONE file, same idea as the
   tokens. No page hard-codes a name, a phone number, or a lead time. The
   menu is `lib/menu.ts`, the orderable catalog is `lib/shop.ts`.
@@ -71,8 +71,8 @@ business is, the palette, and the type.
 - **Money is an integer number of cents.** No floats, no strings, no
   decimals in the middle. `formatMoney` is the only place cents become
   readable text.
-- **No card payment exists, and none may be faked.** Orders are placed,
-  confirmed, then invoiced off the site.
+- **Stripe is optional and server-only.** Orders are saved before payment.
+  The webhook, not the success redirect, is the authority for paid status.
 - Order lines are SNAPSHOTTED onto the order (name, unit price), so
   changing the catalog never rewrites an order somebody already placed.
 - `/orders/[token]` is public and addressed by an unguessable token, never
@@ -134,16 +134,15 @@ canonical events. Rules:
 
 ## What is a placeholder
 
-The palette, the two faces, the business details in `lib/business.ts`, and
-the menu in `lib/menu.ts`. All of them are stand-ins and all of them say so
+The two faces, the business details in `lib/business.ts`, and the menu in
+`lib/menu.ts`. All of them are stand-ins and all of them say so
 where a visitor can see it. Swap the values, keep the names.
 
 ## Storage
 
-`lib/store.ts` is a JSON file, and it is temporary by design. It cannot
-survive a serverless deployment (read-only filesystem, no shared disk).
-Replacing it with a real database is a rewrite of that one module and
-nothing else, because everything goes through `readData` / `updateData`.
+`lib/store.ts` uses Supabase when both Supabase environment variables are
+set, and a local JSON file otherwise. The Supabase adapter uses optimistic
+version checks because Vercel can run concurrent serverless instances.
 
 ## House conventions
 

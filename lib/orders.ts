@@ -12,9 +12,8 @@ import type { Cart } from "./cart";
  * Orders. What a customer actually bought, as opposed to an enquiry,
  * which is a question about whether we can cook it at all.
  *
- * There is no card payment here and nothing pretends there is: an order is
- * placed, the kitchen confirms it, and the invoice happens off the site.
- * Faking a payment step would be worse than not having one.
+ * Payment is optional. Orders exist independently, then Stripe can collect
+ * the exact snapshotted total when the customer chooses online payment.
  */
 
 export const ORDER_STATUSES: OrderStatus[] = ["pending", "confirmed", "fulfilled", "cancelled"];
@@ -29,7 +28,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 /** What each status means to the person who placed the order. */
 export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
   pending: "We have your order and are checking the date. Nothing is charged yet.",
-  confirmed: "Booked. It is in the diary and we will invoice you closer to the day.",
+  confirmed: "Booked. It is in the diary and we will stay in touch as the day approaches.",
   fulfilled: "Delivered. Thank you.",
   cancelled: "This order was cancelled.",
 };
@@ -55,6 +54,9 @@ function forCustomer(order: OrderRecord): CustomerOrder {
     lines: order.lines,
     subtotalMinor: order.subtotalMinor,
     status: order.status,
+    paymentStatus: order.paymentStatus,
+    stripeCheckoutSessionId: order.stripeCheckoutSessionId,
+    paidAt: order.paidAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };
@@ -110,6 +112,9 @@ export async function placeOrder(
       lines,
       subtotalMinor: cart.subtotalMinor,
       status: "pending",
+      paymentStatus: "unpaid",
+      stripeCheckoutSessionId: null,
+      paidAt: null,
       ownerNotes: "",
       createdAt: now,
       updatedAt: now,
@@ -166,6 +171,31 @@ export async function updateOrder(
     order.updatedAt = new Date().toISOString();
     // A copy, so a later mutation of the stored row cannot surprise the caller.
     return { ...order };
+  });
+}
+
+export async function setOrderCheckoutSession(
+  id: string,
+  stripeCheckoutSessionId: string
+): Promise<void> {
+  await updateData((data) => {
+    const order = data.orders.find((candidate) => candidate.id === id);
+    if (!order || order.paymentStatus === "paid") return;
+    order.stripeCheckoutSessionId = stripeCheckoutSessionId;
+    order.updatedAt = new Date().toISOString();
+  });
+}
+
+export async function markOrderPaid(id: string, stripeCheckoutSessionId: string): Promise<boolean> {
+  return updateData((data) => {
+    const order = data.orders.find((candidate) => candidate.id === id);
+    if (!order) return false;
+    if (order.paymentStatus === "paid") return true;
+    order.paymentStatus = "paid";
+    order.stripeCheckoutSessionId = stripeCheckoutSessionId;
+    order.paidAt = new Date().toISOString();
+    order.updatedAt = order.paidAt;
+    return true;
   });
 }
 

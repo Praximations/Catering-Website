@@ -7,8 +7,8 @@ import {
   formatSentAt,
   packageLabel,
 } from "@/components/enquiry";
-import { OrderLines, OrderStatusBadge } from "@/components/order";
-import { EmptyState, PageHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
+import { OrderLines, OrderStatusBadge, PaymentBadge } from "@/components/order";
+import { EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { listEnquiriesForUser } from "@/lib/enquiries";
 import { ORDER_STATUS_HELP, listOrdersForUser } from "@/lib/orders";
 import { requireUser } from "@/lib/session";
@@ -50,9 +50,6 @@ export default async function AccountPage() {
             <Link href="/shop" className={buttonClass}>
               Start an order
             </Link>
-            <Link href="/quote" className={secondaryButtonClass}>
-              Request a quote
-            </Link>
           </div>
         </EmptyState>
       ) : null}
@@ -73,7 +70,10 @@ export default async function AccountPage() {
                       {order.guests === 1 ? "person" : "people"}
                     </p>
                   </div>
-                  <OrderStatusBadge status={order.status} />
+                  <div className="flex flex-wrap gap-2">
+                    <PaymentBadge status={order.paymentStatus} />
+                    <OrderStatusBadge status={order.status} />
+                  </div>
                 </div>
 
                 <OrderLines lines={order.lines} />
@@ -136,9 +136,6 @@ export default async function AccountPage() {
         <div className="mt-10 flex flex-wrap gap-3">
           <Link href="/shop" className={buttonClass}>
             Order again
-          </Link>
-          <Link href="/quote" className={secondaryButtonClass}>
-            Request a quote
           </Link>
         </div>
       ) : null}

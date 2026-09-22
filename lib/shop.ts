@@ -12,20 +12,58 @@
  */
 
 /** What a quantity MEANS for this product, which changes how it is priced. */
-export type ProductUnit = "person" | "item";
+export type ProductUnit = "person" | "item" | "sandwich";
 
 export interface Product {
   slug: string;
   name: string;
   description: string;
+  image?: string;
+  imageAlt?: string;
   priceMinor: number;
   unit: ProductUnit;
-  category: "package" | "platter" | "extra";
+  category: "sandwich" | "package" | "platter" | "extra";
   /** Smallest order we will take of this line. */
   minQuantity: number;
 }
 
 export const products: Product[] = [
+  {
+    slug: "classic-sandwich-assortment",
+    name: "Classic sandwich assortment",
+    description:
+      "Turkey and herb mayo, roast beef and horseradish, lemon chicken, mature cheddar, and hummus with crisp vegetables.",
+    image: "/images/classic-sandwich-assortment.png",
+    imageAlt: "Classic sandwich assortment with turkey, roast beef, chicken, cheese, and vegetable fillings",
+    priceMinor: 1050,
+    unit: "sandwich",
+    category: "sandwich",
+    minQuantity: 50,
+  },
+  {
+    slug: "vegetarian-sandwich-assortment",
+    name: "Vegetarian sandwich assortment",
+    description:
+      "Mature cheddar and chutney, smashed chickpea, roasted vegetables, egg and watercress, and cucumber with herbed cream cheese.",
+    image: "/images/vegetarian-sandwich-assortment.png",
+    imageAlt: "Vegetarian sandwich assortment with fresh vegetables, cheese, and herb fillings",
+    priceMinor: 950,
+    unit: "sandwich",
+    category: "sandwich",
+    minQuantity: 50,
+  },
+  {
+    slug: "premium-sandwich-assortment",
+    name: "Premium sandwich assortment",
+    description:
+      "Prosciutto and mozzarella, smoked salmon, roast chicken pesto, brie and apple, and grilled portobello on bakery bread.",
+    image: "/images/premium-sandwich-assortment.png",
+    imageAlt: "Premium sandwich assortment with salmon, prosciutto, roast chicken, brie, and bakery bread",
+    priceMinor: 1350,
+    unit: "sandwich",
+    category: "sandwich",
+    minQuantity: 50,
+  },
   {
     slug: "buffet-per-head",
     name: "Buffet",
@@ -62,15 +100,6 @@ export const products: Product[] = [
     unit: "person",
     category: "package",
     minQuantity: 8,
-  },
-  {
-    slug: "sandwich-platter",
-    name: "Sandwich platter",
-    description: "Twelve rounds on real bread, cut properly. Feeds about six.",
-    priceMinor: 4800,
-    unit: "item",
-    category: "platter",
-    minQuantity: 1,
   },
   {
     slug: "cheese-board",
@@ -112,11 +141,22 @@ export function quantityLabel(product: Product, quantity: number): string {
   if (product.unit === "person") {
     return `${quantity} ${quantity === 1 ? "person" : "people"}`;
   }
+  if (product.unit === "sandwich") {
+    return `${quantity} sandwiches`;
+  }
   return `${quantity} ${quantity === 1 ? "order" : "orders"}`;
 }
 
 export function unitLabel(product: Product): string {
-  return product.unit === "person" ? "a head" : "each";
+  if (product.unit === "person") return "a head";
+  if (product.unit === "sandwich") return "per sandwich";
+  return "each";
+}
+
+export function quantityInputLabel(product: Product): string {
+  if (product.unit === "person") return "People";
+  if (product.unit === "sandwich") return "Sandwiches";
+  return "Quantity";
 }
 
 /**
@@ -131,9 +171,17 @@ export function formatMoney(minor: number): string {
 }
 
 export const CATEGORY_LABELS: Record<Product["category"], string> = {
+  sandwich: "Sandwich collections",
   package: "By the head",
   platter: "Platters and trays",
   extra: "Extras",
 };
 
-export const CATEGORY_ORDER: Product["category"][] = ["package", "platter", "extra"];
+export const CATEGORY_DESCRIPTIONS: Record<Product["category"], string> = {
+  sandwich: "Prepared fresh and sold in bulk. Choose at least 50 sandwiches from each assortment.",
+  package: "Complete menus priced for each guest, with a 20-person minimum unless noted.",
+  platter: "Useful additions for a buffet table, team lunch, or afternoon meeting.",
+  extra: "Service details that help the day run smoothly.",
+};
+
+export const CATEGORY_ORDER: Product["category"][] = ["sandwich", "package", "platter", "extra"];

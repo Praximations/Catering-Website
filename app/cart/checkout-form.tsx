@@ -117,7 +117,7 @@ export function CheckoutForm({
       <div className="flex flex-wrap items-center gap-4 border-t border-line pt-6">
         <SubmitButton pendingLabel="Placing order...">Place order, {total}</SubmitButton>
         <p className="text-xs text-ink-subtle">
-          No card is taken here. We confirm the date, then invoice.
+          Place the order first, then choose secure online payment or follow-up invoicing.
         </p>
       </div>
     </form>

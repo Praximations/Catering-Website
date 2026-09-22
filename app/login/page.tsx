@@ -33,9 +33,9 @@ export default async function LoginPage() {
         .
       </p>
       <p className="mt-2 text-sm text-ink-subtle">
-        You do not need an account to{" "}
-        <Link href="/quote" className="hover:underline">
-          request a quote
+        Want to look around first?{" "}
+        <Link href="/menu" className="hover:underline">
+          Browse the menu
         </Link>
         .
       </p>

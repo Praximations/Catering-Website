@@ -22,6 +22,18 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
+export function PaymentBadge({ status }: { status: "unpaid" | "paid" }) {
+  return (
+    <span className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-xs font-medium ${
+      status === "paid"
+        ? "border-accent/30 bg-accent/10 text-accent-strong"
+        : "border-line bg-raised text-ink-subtle"
+    }`}>
+      {status === "paid" ? "Paid" : "Unpaid"}
+    </span>
+  );
+}
+
 export function OrderLines({ lines }: { lines: OrderLine[] }) {
   return (
     <ul className="mt-4 space-y-1.5 text-sm">
@@ -31,7 +43,13 @@ export function OrderLines({ lines }: { lines: OrderLine[] }) {
             {line.name}
             <span className="text-ink-subtle">
               {" "}
-              &middot; {line.quantity} {line.unit === "person" ? "people" : "ordered"} at{" "}
+              &middot; {line.quantity}{" "}
+              {line.unit === "person"
+                ? "people"
+                : line.unit === "sandwich"
+                  ? "sandwiches"
+                  : "ordered"}{" "}
+              at{" "}
               {formatMoney(line.unitPriceMinor)}
             </span>
           </span>

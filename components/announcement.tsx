@@ -13,7 +13,7 @@ export async function AnnouncementBanner() {
   if (!data.announcement) return null;
 
   return (
-    <div className="border-b border-accent bg-accent/10 px-6 py-2.5 text-center text-sm text-accent-strong">
+    <div className="border-b border-highlight/20 bg-highlight-soft px-6 py-2.5 text-center text-sm font-medium text-highlight">
       {data.announcement.message}
     </div>
   );
