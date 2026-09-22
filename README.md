@@ -6,9 +6,18 @@ owner dashboard for the enquiries that come in.
 ## Running it
 
     npm run dev -- --port 3100     # port 3000 belongs to praximations-web-new
-    npm run build
-    npm run typecheck
-    npm run lint
+    npm run verify                 # typecheck, lint, test, build
+    npm test
+    npm run test:watch
+
+`npm run verify` runs the four in the order that localizes a failure
+fastest: typecheck, lint, test, then build.
+
+Tests run on Node's own test runner. Node 22 strips types without
+compiling, so there is no transpiler and no test dependency to install.
+That does mean three pieces of TypeScript syntax cannot be used anywhere in
+the project: parameter properties, `enum`, and `namespace`. `npm run lint`
+rejects all three with a message explaining why.
 
 No configuration is needed to run it. Copy `.env.example` to `.env.local`
 if you want to set any of it.
@@ -29,7 +38,8 @@ if you want to set any of it.
     /cart             the cart and checkout
     /orders/[token]   order confirmation, reachable by its own link
     /about            how booking works and the practical details
-    /quote            the enquiry form, open to everyone, no account needed
+    /contact          the enquiry form, open to everyone, no account needed
+    /quote            kept as a redirect to /shop, for old links
     /login            sign in
     /signup           create an account
     /account          customer portal: events, orders, payments, messages,
@@ -54,9 +64,19 @@ Two rules it will not bend on:
   quantities only; every total is recomputed server side from the catalog.
   A cookie is editable, so a price out of one would be a price the
   customer chose.
-- **Payment is optional and verifiable.** The order is saved first. When
-  Stripe is configured, the confirmation page offers hosted Stripe Checkout.
-  Only a signed Stripe webhook marks an order paid.
+- **Payment is optional and verifiable.** The order is saved first. When a
+  provider is configured, the confirmation page offers hosted checkout.
+  Only a signed webhook marks an order paid, never the success redirect: a
+  customer can open that URL without paying, and can close the tab after
+  paying.
+- **The order says what is owed, not the provider.** The webhook pipeline
+  compares the amount and currency the provider reports against the stored
+  order and refuses a mismatch rather than marking it paid.
+- **Payments are pluggable.** `lib/payments` defines a `PaymentProvider`
+  interface with Stripe as the first implementation. Adding another is a new
+  file plus one line in the registry; nothing under `app/` names a provider,
+  and the verification, deduplication and amount checks are shared rather
+  than reimplemented per integration.
 
 An order's confirmation page is addressed by an unguessable token rather
 than the order id or the reference number, so a guest can return to their
@@ -183,25 +203,110 @@ Reads are shaped by hand, so private notes and password hashes are not in
 what Praxi gets back. Revoking a key stops it on the next call; nothing is
 cached.
 
-## Supabase and Vercel
+## Storage
 
-Local development still works with `data/catering.json`. In production,
-set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` and the same storage
-contract uses a private Supabase row with optimistic concurrency. Run
-`supabase/schema.sql` once in the Supabase SQL editor before deploying.
+One narrow contract in `lib/db`, two adapters behind it.
 
-For Vercel, also set `SESSION_SECRET`, `SUPABASE_ANON_KEY`,
-`NEXT_PUBLIC_SITE_URL`, and the Stripe
-variables from `.env.example`. In Stripe, add a webhook ending in
-`/api/stripe/webhook` and subscribe it to `checkout.session.completed`.
+Local development uses a JSON file and needs no setup at all. Set
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` and the same contract talks
+to Postgres over Supabase's REST endpoint instead. Run
+`supabase/schema.sql` once in the SQL editor first; it is idempotent.
 
-`data/` is gitignored. Real accounts and real enquiries do not belong in
-git.
+The schema is sixteen tables with foreign keys, check constraints, indexes,
+and row level security enabled with no policies, which denies every role
+except the service role the server uses. Browsers reach this data only
+through this application's own authorization checks.
+
+Two things the contract gives you that are worth knowing about, because the
+rest of the code leans on them:
+
+- **The insert is the lock.** `insertIfAbsent` returns null when a unique
+  constraint already holds the value. That is how "one account per address"
+  and "process this webhook event once" are enforced, rather than by
+  looking first and then writing, which two simultaneous callers both pass.
+- **An update returns what it changed.** Put a state check in the WHERE and
+  a conditional update is one atomic statement. "Mark this order paid, but
+  only if it is still unpaid" is a single statement, so two webhook
+  deliveries arriving together cannot both succeed.
+
+Anything the contract cannot express is a view or a function in
+`supabase/schema.sql`. Dashboard counts are views, so counting orders does
+not mean reading them all. An order and its lines are written by the
+`place_order` function in one transaction, because an order whose lines
+failed to insert would show the customer a total with nothing in it.
+
+`data/` is gitignored. Real accounts and real orders do not belong in git.
+
+### Coming from the old single-document layout
+
+The first version of this app kept the entire database as one jsonb
+document in one row. If you have one of those:
+
+    node scripts/migrate-from-blob.mjs --from data/catering.json --dry-run
+    node scripts/migrate-from-blob.mjs --print-json      # inspect the rows
+    node scripts/migrate-from-blob.mjs --from-supabase   # read the old row
+
+It never deletes the source, so a migration that goes wrong is undone by
+pointing the app back at it. Everyone has to sign in again afterwards: the
+cookie format changed, and old cookies are rejected rather than trusted.
+
+## Deploying to Vercel
+
+Set `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+`SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, and the Stripe variables from
+`.env.example`.
+
+Supabase is not optional there. The site refuses to start without it rather
+than falling back to the local file, because each serverless instance would
+get its own copy on a disk that is thrown away, so orders would appear to
+save and then vanish.
+
+In Stripe, add a webhook ending in `/api/stripe/webhook` and subscribe it
+to `checkout.session.completed`,
+`checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed`, `checkout.session.expired`,
+`payment_intent.payment_failed`, and `charge.refunded`.
+
+## Security
+
+What is in place, and what each piece is actually for:
+
+- **Security headers**, in `lib/security-headers.ts`. A Content Security
+  Policy with a per-request nonce and `strict-dynamic`, so an injected
+  script does not run; `frame-ancestors 'none'`; HSTS in production only;
+  and `Referrer-Policy: strict-origin-when-cross-origin`, because the path
+  of an order page is a credential and a full-path referrer would hand it
+  to any site a customer clicks through to.
+- **Rate limits** on sign in, sign up, the contact form, checkout, and
+  Praxi's control endpoint. Stored rather than in memory: a counter in one
+  process gives every serverless instance its own allowance. Sign in is
+  limited per address AND per caller, because either alone has a hole.
+- **Revocable sessions.** A signed cookie cannot be recalled, so signing
+  out only clears the browser doing it. "Sign out everywhere", on the
+  account page, moves the account's session epoch and every cookie ever
+  issued for it stops working at once.
+- **Verified email on Google sign in.** Signing in with Google connects to
+  an existing account by address, so an unverified address would be enough
+  to take over the account owning it.
+- **Passwords** hashed with scrypt, salted, compared in constant time, and
+  length capped, because scrypt is deliberately expensive and an unbounded
+  password is a way to spend the server's CPU. A wrong password and an
+  address with no account take the same time and give the same message.
+- **Every free-text field has a maximum**, enforced in one place. A field
+  read without one is an unbounded write.
+- **Payment amounts are verified** against the stored order, and webhook
+  events are deduplicated by the provider's event id.
 
 ## Stack
 
 Next.js 16.3.5 (App Router, webpack), React 19.2.4, TypeScript, Tailwind
-v4, and the official Supabase browser and server auth packages.
+v4, and `@supabase/ssr` for the Google sign in handshake. Nothing else at
+runtime: auth, hashing, sessions, Postgres, and payments are the platform
+and the Node standard library.
+
+Tests and CI add no dependency either. `node:test` plus Node 22's own type
+stripping, and a GitHub Actions workflow that runs typecheck, lint, test,
+and build.
 
 ## Still not decided
 
