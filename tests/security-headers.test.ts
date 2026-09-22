@@ -69,6 +69,21 @@ describe("contentSecurityPolicy", () => {
     assert.equal(production["connect-src"]!.includes("ws:"), false);
   });
 
+  it("lets a configured provider's checkout host receive a form, and nothing else", () => {
+    // Firefox and Safari apply form-action across redirects, so the Pay
+    // button, which posts to a Server Action that redirects to hosted
+    // checkout, is refused without this. Chrome does not check redirects, so
+    // the failure is invisible in the browser most people test in.
+    const withProvider = parse(
+      contentSecurityPolicy({ nonce: NONCE, checkoutOrigins: ["https://checkout.stripe.com"] })
+    );
+    assert.deepEqual(withProvider["form-action"], ["'self'", "https://checkout.stripe.com"]);
+
+    // With no provider configured the policy must not name a host this
+    // deployment cannot reach.
+    assert.deepEqual(production["form-action"], ["'self'"]);
+  });
+
   it("names Supabase in connect-src only when it is configured", () => {
     const without = parse(contentSecurityPolicy({ nonce: NONCE }));
     assert.deepEqual(without["connect-src"], ["'self'"]);

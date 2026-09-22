@@ -205,7 +205,7 @@ export default async function AdminPage() {
                     </p>
                     <p className="mt-1 text-sm text-ink-muted">
                       {order.guests} {order.guests === 1 ? "person" : "people"} &middot;{" "}
-                      {formatMoney(order.subtotalMinor)}
+                      {formatMoney(order.subtotalMinor, order.currency)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -214,7 +214,7 @@ export default async function AdminPage() {
                   </div>
                 </div>
 
-                <OrderLines lines={order.lines} />
+                <OrderLines lines={order.lines} currency={order.currency} />
 
                 <div className="mt-4 grid gap-x-6 gap-y-1 border-t border-line pt-4 text-sm sm:grid-cols-2">
                   <p className="text-ink">

@@ -262,16 +262,21 @@ export const jsonStore: Store = {
     const grouped = new Map<string, StatusCountRow>();
     for (const row of data.tables[source] ?? []) {
       const status = String(row.status);
-      const entry = grouped.get(status) ?? { status, count: 0, subtotalMinor: 0 };
-      entry.count += 1;
-      if (view === "order_counts") {
-        entry.subtotalMinor = (entry.subtotalMinor ?? 0) + Number(row.subtotalMinor ?? 0);
+      if (view !== "order_counts") {
+        const entry = grouped.get(status) ?? { status, count: 0 };
+        entry.count += 1;
+        grouped.set(status, entry);
+        continue;
       }
-      grouped.set(status, entry);
+      // Grouped by both, matching the order_counts view.
+      const paymentStatus = String(row.paymentStatus ?? "unpaid");
+      const key = `${status}/${paymentStatus}`;
+      const entry = grouped.get(key) ?? { status, paymentStatus, count: 0, subtotalMinor: 0 };
+      entry.count += 1;
+      entry.subtotalMinor = (entry.subtotalMinor ?? 0) + Number(row.subtotalMinor ?? 0);
+      grouped.set(key, entry);
     }
-    return [...grouped.values()].map((entry) =>
-      view === "order_counts" ? entry : { status: entry.status, count: entry.count }
-    );
+    return [...grouped.values()];
   },
 
   /**

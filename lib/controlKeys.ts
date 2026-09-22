@@ -89,8 +89,16 @@ export async function verifyControlKey(token: string): Promise<ControlKeySummary
   const key = await db.controlKeys.findOne({ all: { tokenHash: hash(token) } });
   if (!key || key.status !== "active") return null;
 
-  // Bookkeeping only, and never allowed to fail the request it describes.
-  db.controlKeys
+  /**
+   * AWAITED. This used to be a floating promise on the grounds that
+   * bookkeeping must not fail the request, but it is a network call now, and a
+   * serverless host can freeze the function the moment the response is sent,
+   * so the write was simply lost. "When was this key last used" is the one
+   * signal telling an owner whether a key is live before they revoke it.
+   *
+   * Still swallows its own failure, which was the actual intent.
+   */
+  await db.controlKeys
     .update({ all: { id: key.id } }, { lastUsedAt: new Date().toISOString() })
     .catch((error: unknown) => {
       console.warn("[control] lastUsedAt not recorded:", (error as Error).message);

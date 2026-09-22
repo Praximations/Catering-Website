@@ -122,9 +122,16 @@ export async function loginAction(
     return { error: "That email and password do not match an account." };
   }
 
-  // A successful sign in forgets the failures before it, so somebody who
-  // mistyped their password four times is not locked out tomorrow.
-  await Promise.all([clearRateLimit(perAccount), clearRateLimit(perCaller)]);
+  /**
+   * Only the PER-ACCOUNT bucket is cleared. Somebody who mistyped their own
+   * password four times should not be locked out tomorrow.
+   *
+   * The per-caller bucket is deliberately left alone. Clearing it would let an
+   * attacker who holds any one valid account reset the spray counter at will:
+   * try nine accounts with one common password, sign in to their own, and
+   * start again, which is exactly the attack that bucket exists to see.
+   */
+  await clearRateLimit(perAccount);
 
   await createSession(user.id);
   redirect(user.role === "owner" ? "/admin" : "/account");

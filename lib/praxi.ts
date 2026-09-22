@@ -167,7 +167,7 @@ export async function praxiOrderCreated(order: OrderRecord): Promise<void> {
         order: {
           external_id: order.id,
           status: "pending",
-          currency: "USD",
+          currency: order.currency.toUpperCase(),
           total_minor: order.subtotalMinor,
           subtotal_minor: order.subtotalMinor,
           placed_at: order.createdAt,
@@ -231,7 +231,7 @@ export async function praxiOrderUpdated(order: OrderRecord): Promise<void> {
         order: {
           external_id: order.id,
           status: CANONICAL_STATUS[order.status],
-          currency: "USD",
+          currency: order.currency.toUpperCase(),
           total_minor: order.subtotalMinor,
           data: { reference: order.reference, local_status: order.status },
         },

@@ -219,6 +219,9 @@ export const postgrestStore: Store = {
       return {
         status: String(record.status),
         count: Number(record.count),
+        ...(record.paymentStatus === undefined
+          ? {}
+          : { paymentStatus: String(record.paymentStatus) }),
         ...(record.subtotalMinor === undefined
           ? {}
           : { subtotalMinor: Number(record.subtotalMinor) }),

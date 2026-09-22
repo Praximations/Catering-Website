@@ -47,7 +47,12 @@ export function PaymentBadge({ status }: { status: PaymentStatus }) {
   );
 }
 
-export function OrderLines({ lines }: { lines: OrderLine[] }) {
+/**
+ * `currency` is required rather than defaulted. These are the lines of an
+ * ORDER, which carries the currency it was charged in, and falling back to
+ * today's business currency would relabel what somebody already paid.
+ */
+export function OrderLines({ lines, currency }: { lines: OrderLine[]; currency: string }) {
   return (
     <ul className="mt-4 space-y-1.5 text-sm">
       {lines.map((line) => (
@@ -63,10 +68,10 @@ export function OrderLines({ lines }: { lines: OrderLine[] }) {
                   ? "sandwiches"
                   : "ordered"}{" "}
               at{" "}
-              {formatMoney(line.unitPriceMinor)}
+              {formatMoney(line.unitPriceMinor, currency)}
             </span>
           </span>
-          <span className="shrink-0 text-ink">{formatMoney(line.lineTotalMinor)}</span>
+          <span className="shrink-0 text-ink">{formatMoney(line.lineTotalMinor, currency)}</span>
         </li>
       ))}
     </ul>

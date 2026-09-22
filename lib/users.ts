@@ -40,14 +40,42 @@ function ownerEmail(): string | null {
 /**
  * Whether this address should be the owner.
  *
- * With OWNER_EMAIL set, exactly that address and nothing else. Without it,
- * the first account in an empty database, which is what makes a fresh
- * checkout usable without configuration.
+ * With OWNER_EMAIL set, exactly that address and nothing else, which is a
+ * decision about the address alone and safe to make before the write.
+ *
+ * WITHOUT IT the rule is "the first account", and that is a read. Deciding it
+ * here would be look-then-write: two signups arriving together on an empty
+ * database both see zero users and both claim the role, because the unique
+ * index is on the email and not on the role. So this returns null for that
+ * case and `claimOwnership` settles it after the row exists.
  */
-async function roleFor(email: string): Promise<Role> {
+function roleFromEmail(email: string): Role | null {
   const named = ownerEmail();
   if (named) return email === named ? "owner" : "customer";
-  return (await db.users.count()) === 0 ? "owner" : "customer";
+  return null;
+}
+
+/**
+ * Promote a just-created account to owner if it is genuinely the first one.
+ *
+ * Runs AFTER the insert, so "is there an owner" and "am I the earliest
+ * account" are asked of a database that already contains this row. The
+ * conditional update is what settles a race: `role: "customer"` in the WHERE
+ * means the loser of a simultaneous promotion changes nothing.
+ */
+async function claimOwnership(user: UserRecord): Promise<UserRecord> {
+  if (await hasOwner()) return user;
+
+  // The earliest account wins, which is a total order both racers agree on,
+  // rather than "whoever asked first".
+  const earliest = await db.users.find(undefined, { orderBy: "createdAt", limit: 1 });
+  if (earliest[0]?.id !== user.id) return user;
+
+  const [promoted] = await db.users.update(
+    { all: { id: user.id, role: "customer" } },
+    { role: "owner" }
+  );
+  return promoted ?? user;
 }
 
 export async function findUserById(id: string): Promise<UserRecord | null> {
@@ -74,7 +102,7 @@ export async function createUser(input: {
 }): Promise<CreateUserResult> {
   const email = normalizeEmail(input.email);
   const passwordHash = await hashPassword(input.password);
-  const role = await roleFor(email);
+  const now = new Date().toISOString();
 
   // insertIfAbsent, not "look then write". Two signups with the same address
   // in the same moment both pass a prior check; only one can win the unique
@@ -85,14 +113,16 @@ export async function createUser(input: {
     name: input.name.trim(),
     passwordHash,
     authProvider: "password",
-    role,
+    role: roleFromEmail(email) ?? "customer",
     sessionEpoch: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   });
 
   if (!created) return { ok: false, reason: "email_taken" };
-  return { ok: true, user: toPublic(created) };
+
+  const user = roleFromEmail(email) === null ? await claimOwnership(created) : created;
+  return { ok: true, user: toPublic(user) };
 }
 
 /**
@@ -140,7 +170,7 @@ export async function findOrCreateGoogleUser(input: {
     name: input.name.trim() || email.split("@")[0]!,
     passwordHash: null,
     authProvider: "google",
-    role: await roleFor(email),
+    role: roleFromEmail(email) ?? "customer",
     sessionEpoch: 0,
     createdAt: now,
     updatedAt: now,
@@ -154,7 +184,8 @@ export async function findOrCreateGoogleUser(input: {
     return { user: toPublic(now), created: false };
   }
 
-  return { user: toPublic(created), created: true };
+  const user = roleFromEmail(email) === null ? await claimOwnership(created) : created;
+  return { user: toPublic(user), created: true };
 }
 
 /**

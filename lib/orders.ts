@@ -216,13 +216,24 @@ export async function listOrdersForUser(
 }
 
 /**
- * Whether this order is that account's, by id. Used wherever an order id
- * arrives in a form field: the id is a request to act on an order, never
- * proof of owning it.
+ * Whether this order is that account's. Used wherever an order id arrives in a
+ * form field: the id is a request to act on an order, never proof of owning it.
+ *
+ * Matches by account id OR by the address the order was placed under, which is
+ * the SAME rule listOrdersForUser uses. Matching only on userId would disagree
+ * with it for an order placed as a guest before signing up: the customer can
+ * file a message against it and the owner's reply would then silently lose the
+ * order it was about.
  */
 export async function orderBelongsToUser(orderId: string, userId: string): Promise<boolean> {
   if (!orderId || !userId) return false;
-  return (await db.orders.count({ all: { id: orderId, userId } })) > 0;
+
+  const order = await db.orders.findOne({ all: { id: orderId } });
+  if (!order) return false;
+  if (order.userId === userId) return true;
+
+  const account = await db.users.findOne({ all: { id: userId } });
+  return Boolean(account && order.email === account.email.toLowerCase());
 }
 
 /** Returns the updated order so the caller can tell Praxi what changed. */
@@ -325,11 +336,18 @@ export async function orderCounts(): Promise<OrderCounts> {
 
   for (const row of rows) {
     if (!(row.status in result)) continue;
-    result[row.status as OrderStatus] = row.count;
+    // The view groups by status AND payment status, so a status can arrive in
+    // more than one row and these accumulate rather than assign.
+    result[row.status as OrderStatus] += row.count;
     result.total += row.count;
-    // Cancelled orders are not revenue, and counting them would flatter the
-    // number in exactly the way a dashboard must not.
-    if (row.status !== "cancelled") result.revenueMinor += row.subtotalMinor ?? 0;
+
+    // Cancelled is not revenue, and neither is refunded: the money arrived and
+    // went back. Counting either would flatter the number in exactly the way a
+    // dashboard must not, and lib/customers.ts already excludes both from the
+    // per-customer lifetime value on the same page.
+    if (row.status === "cancelled") continue;
+    if (row.paymentStatus === "refunded") continue;
+    result.revenueMinor += row.subtotalMinor ?? 0;
   }
   return result;
 }

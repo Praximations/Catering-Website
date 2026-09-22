@@ -87,6 +87,43 @@ export async function getProducts(slugs: readonly string[]): Promise<Map<string,
   );
 }
 
+/**
+ * Change ONE column of a product's override row, leaving the others alone.
+ *
+ * An upsert sets every column in its payload, so the naive
+ * read-the-row-and-write-it-all-back shape silently reverts whatever else
+ * changed in between. Insert the row if it is missing, otherwise patch only
+ * what the caller named.
+ */
+async function writeOverride(
+  slug: string,
+  patch: { priceMinor?: number; available?: boolean },
+  by: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const updated = await db.productOverrides.update(
+    { all: { slug } },
+    { ...patch, updatedAt: now, updatedBy: by }
+  );
+  if (updated.length > 0) return;
+
+  // No row yet. A concurrent caller may be inserting the same one, so a
+  // collision here means theirs landed first and the patch is applied to it.
+  const created = await db.productOverrides.insertIfAbsent({
+    slug,
+    priceMinor: patch.priceMinor ?? null,
+    available: patch.available ?? null,
+    updatedAt: now,
+    updatedBy: by,
+  });
+  if (!created) {
+    await db.productOverrides.update(
+      { all: { slug } },
+      { ...patch, updatedAt: now, updatedBy: by }
+    );
+  }
+}
+
 export interface PriceChangeResult {
   ok: boolean;
   detail: string;
@@ -123,13 +160,11 @@ export async function setProductPrice(
   const existing = await db.productOverrides.findOne({ all: { slug } });
   const from = existing?.priceMinor ?? product.priceMinor;
 
-  await db.productOverrides.upsert({
-    slug,
-    priceMinor,
-    available: existing?.available ?? null,
-    updatedAt: new Date().toISOString(),
-    updatedBy: by,
-  });
+  // Only the price column. Reading `available` and writing it back would undo
+  // a concurrent change to it: the owner takes something off sale while this
+  // reprices it, and the row goes back on sale at the new price because this
+  // read happened before that write.
+  await writeOverride(slug, { priceMinor }, by);
 
   return {
     ok: true,
@@ -147,14 +182,9 @@ export async function setProductAvailability(
   const product = baseProducts.find((candidate) => candidate.slug === slug);
   if (!product) return { ok: false, detail: `No product called ${slug}.` };
 
-  const existing = await db.productOverrides.findOne({ all: { slug } });
-  await db.productOverrides.upsert({
-    slug,
-    priceMinor: existing?.priceMinor ?? null,
-    available,
-    updatedAt: new Date().toISOString(),
-    updatedBy: by,
-  });
+  // Same reasoning as setProductPrice: this touches `available` and nothing
+  // else, so a concurrent repricing survives it.
+  await writeOverride(slug, { available }, by);
 
   return {
     ok: true,

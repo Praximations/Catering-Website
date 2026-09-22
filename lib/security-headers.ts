@@ -12,6 +12,11 @@ export interface CspOptions {
   development?: boolean;
   /** The Supabase project URL, which the Google sign in flow redirects to. */
   supabaseUrl?: string | undefined;
+  /**
+   * Where a Pay button may end up submitting. See checkoutOrigins in
+   * lib/payments, and the note on the form-action directive below.
+   */
+  checkoutOrigins?: readonly string[];
 }
 
 /**
@@ -42,7 +47,7 @@ export interface CspOptions {
  * An injected script runs as the site.
  */
 export function contentSecurityPolicy(options: CspOptions): string {
-  const { nonce, development = false, supabaseUrl } = options;
+  const { nonce, development = false, supabaseUrl, checkoutOrigins = [] } = options;
 
   const policy: [string, string[]][] = [
     ["default-src", ["'self'"]],
@@ -90,9 +95,17 @@ export function contentSecurityPolicy(options: CspOptions): string {
     // The modern X-Frame-Options. Unlike that header it cannot be confused by
     // more than one value.
     ["frame-ancestors", ["'none'"]],
-    // Forms post back here and nowhere else, so a form injected into a page
-    // cannot send what somebody types into it somewhere else.
-    ["form-action", ["'self'"]],
+    /**
+     * Forms post back here, so a form injected into a page cannot send what
+     * somebody types into it anywhere else.
+     *
+     * The payment provider's checkout host is the one exception, and only when
+     * that provider is configured. Firefox and Safari apply form-action across
+     * REDIRECTS, so without it the Pay button, which posts to a Server Action
+     * that redirects to hosted checkout, is refused and the customer lands on
+     * a blank page. Chrome does not check redirects, so it looks fine there.
+     */
+    ["form-action", ["'self'", ...checkoutOrigins]],
     // No <base> tag can retarget every relative URL on the page.
     ["base-uri", ["'self'"]],
     // Nothing uses a worker, and a blob: worker is a well travelled way to get

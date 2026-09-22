@@ -100,7 +100,14 @@ export function verifyStripeSignature(
   });
 }
 
-/** Which of our order ids an event is about, whatever object it carries. */
+/**
+ * Which of our order ids an event is about, whatever object it carries.
+ *
+ * startCheckout puts order_id in three places for this reason: the session's
+ * metadata, its client_reference_id, and the PaymentIntent's metadata. A
+ * charge.refunded event carries the Charge, whose metadata Stripe copies from
+ * the PaymentIntent, which is why the PaymentIntent copy is set at all.
+ */
 function orderIdFrom(object: Record<string, unknown>): string | null {
   const metadata = object.metadata as Record<string, string> | null | undefined;
   const fromMetadata = metadata?.order_id;
@@ -110,6 +117,23 @@ function orderIdFrom(object: Record<string, unknown>): string | null {
   if (typeof clientReference === "string" && clientReference) return clientReference;
 
   return null;
+}
+
+/**
+ * The id to store on the order: the thing somebody looks up in the Stripe
+ * dashboard. The session for a checkout, the PaymentIntent for a charge, and
+ * never the event id, which identifies the notification rather than the money.
+ */
+function paymentReferenceFrom(object: Record<string, unknown>): string | null {
+  // A Checkout Session's own id is what startCheckout stored and what the
+  // dashboard searches, so prefer it over the PaymentIntent it points at.
+  const id = object.id;
+  if (typeof id === "string" && id.startsWith("cs_")) return id;
+
+  const paymentIntent = object.payment_intent;
+  if (typeof paymentIntent === "string" && paymentIntent) return paymentIntent;
+
+  return typeof id === "string" && id ? id : null;
 }
 
 /**
@@ -129,13 +153,23 @@ const EVENT_KINDS: Record<string, PaymentEventKind> = {
   "checkout.session.expired": "failed",
   "payment_intent.payment_failed": "failed",
   "charge.refunded": "refunded",
-  "charge.dispute.created": "refunded",
+  /**
+   * NOT charge.dispute.created. A Dispute object carries its own (empty)
+   * metadata and no client_reference_id, so nothing on it names one of our
+   * orders: mapping it to "refunded" produced an entry that could only ever
+   * record "no order id" while reading as though disputes were handled.
+   * Resolving one means following its payment_intent back to the charge,
+   * which is a second API call and a deliberate feature, not a line here.
+   */
 };
 
 export const stripeProvider: PaymentProvider = {
   id: "stripe",
   label: "Stripe",
   configured: Boolean(secretKey && webhookSecret),
+  // Hosted Checkout, which is where startCheckout redirects. See the note on
+  // checkoutOrigins in types.ts for why the CSP needs it.
+  checkoutOrigins: ["https://checkout.stripe.com"],
 
   async startCheckout(order: CustomerOrder, urls: CheckoutUrls): Promise<StartedCheckout> {
     if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured.");
@@ -226,6 +260,7 @@ export const stripeProvider: PaymentProvider = {
       orderId: orderIdFrom(object),
       amountMinor: typeof amount === "number" ? amount : null,
       currency: typeof currency === "string" ? currency : null,
+      paymentReference: paymentReferenceFrom(object),
     };
     return { ok: true, event };
   },

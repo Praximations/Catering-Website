@@ -69,11 +69,11 @@ export default async function OrderPage({
           <OrderStatusBadge status={order.status} />
         </div>
 
-        <OrderLines lines={order.lines} />
+        <OrderLines lines={order.lines} currency={order.currency} />
 
         <div className="mt-4 flex justify-between border-t border-line pt-4">
           <p className="text-ink-muted">Total</p>
-          <p className="font-display text-xl text-ink">{formatMoney(order.subtotalMinor)}</p>
+          <p className="font-display text-xl text-ink">{formatMoney(order.subtotalMinor, order.currency)}</p>
         </div>
         <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-sm">
           <span className="text-ink-muted">Payment</span>
@@ -105,7 +105,7 @@ export default async function OrderPage({
           <form action={startPaymentAction} className="mt-5 sm:mt-0">
             <input type="hidden" name="token" value={token} />
             <button type="submit" className="inline-flex min-h-11 items-center bg-surface px-5 text-sm font-bold text-accent transition-transform hover:-translate-y-0.5">
-              Pay {formatMoney(order.subtotalMinor)}
+              Pay {formatMoney(order.subtotalMinor, order.currency)}
             </button>
           </form>
         </div>

@@ -93,8 +93,10 @@ async function insert(table, rows) {
         Authorization: `Bearer ${SERVICE_KEY}`,
         "Content-Type": "application/json",
         // Re-running the migration must not duplicate rows, and must not stop
-        // at the first row that is already there.
-        Prefer: "return=minimal,resolution=ignore-duplicates",
+        // at the first row that is already there. return=representation, not
+        // minimal, because ignore-duplicates drops rows SILENTLY and counting
+        // the batch would report an order that was never written as migrated.
+        Prefer: "return=representation,resolution=ignore-duplicates",
       },
       body: JSON.stringify(batch),
     });
@@ -102,10 +104,17 @@ async function insert(table, rows) {
       const detail = await response.text();
       fail(`Writing ${table} failed: HTTP ${response.status}\n  ${detail}`);
     }
-    written += batch.length;
+    const inserted = await response.json();
+    written += Array.isArray(inserted) ? inserted.length : batch.length;
+    if (Array.isArray(inserted) && inserted.length !== batch.length) {
+      skipped.push(`${table}: ${batch.length - inserted.length} row(s) already present or rejected`);
+    }
   }
   return written;
 }
+
+/** Rows the database declined to insert, reported at the end rather than lost. */
+const skipped = [];
 
 const iso = (value, fallback = new Date().toISOString()) =>
   typeof value === "string" && value ? value : fallback;
@@ -170,6 +179,18 @@ function mapAll(blob) {
   const orderLines = [];
   const knownOrderIds = new Set();
 
+  const takenReferences = new Set(
+    (blob.orders ?? []).map((order) => str(order.reference)).filter(Boolean)
+  );
+  let nextCandidate = 1000;
+  const nextReference = () => {
+    do {
+      nextCandidate += 1;
+    } while (takenReferences.has(String(nextCandidate)));
+    takenReferences.add(String(nextCandidate));
+    return nextCandidate;
+  };
+
   for (const order of blob.orders ?? []) {
     const id = str(order.id) || randomUUID();
     knownOrderIds.add(id);
@@ -177,7 +198,11 @@ function mapAll(blob) {
     const paid = order.paymentStatus === "paid";
     orders.push({
       id,
-      reference: str(order.reference) || String(1000 + orders.length + 1),
+      // A fallback reference must not collide with one another order already
+      // carries: orders.reference is unique, so a collision means PostgREST
+      // silently drops that order and its lines. Take the next number above
+      // every reference in the source instead of counting rows.
+      reference: str(order.reference) || String(nextReference()),
       // An old row without a token would be unreachable by its own owner.
       token: str(order.token) || randomUUID(),
       user_id: userRef(order.userId),
@@ -395,6 +420,11 @@ for (const table of ORDER) {
 }
 
 console.log(`\n  ${total} rows ${dryRun ? "would be" : ""} written.`);
+
+if (skipped.length > 0) {
+  console.log("\n  Not written:");
+  for (const line of skipped) console.log(`    ${line}`);
+}
 
 if (notes.droppedMessages > 0) {
   console.log(

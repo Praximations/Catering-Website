@@ -42,11 +42,11 @@ function OrderCard({ order, current }: { order: CustomerOrder; current: boolean 
           <OrderStatusBadge status={order.status} />
         </div>
       </div>
-      <OrderLines lines={order.lines} />
+      <OrderLines lines={order.lines} currency={order.currency} />
       <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
         <div>
           <p className="text-xs text-ink-subtle">{order.guests} guests</p>
-          <p className="font-display text-xl text-ink">{formatMoney(order.subtotalMinor)}</p>
+          <p className="font-display text-xl text-ink">{formatMoney(order.subtotalMinor, order.currency)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/orders/${order.token}`} className={secondaryButtonClass}>View details</Link>
@@ -78,10 +78,22 @@ export default async function AccountPage() {
   );
   const upcoming = [...currentOrders].sort((a, b) => a.eventDate.localeCompare(b.eventDate))[0];
   const activeOrders = orders.filter((order) => order.status !== "cancelled");
-  const totalCost = activeOrders.reduce((sum, order) => sum + order.subtotalMinor, 0);
-  const amountPaid = activeOrders
+  /**
+   * A REFUNDED order is left out of all three figures. It is not owed: the
+   * money arrived and went back, and no path on this page offers to pay one,
+   * because every Pay button filters on "unpaid". Counting it in totalCost but
+   * not in amountPaid left a balance the page simultaneously said did not
+   * exist.
+   */
+  const billableOrders = activeOrders.filter((order) => order.paymentStatus !== "refunded");
+  const totalCost = billableOrders.reduce((sum, order) => sum + order.subtotalMinor, 0);
+  const amountPaid = billableOrders
     .filter((order) => order.paymentStatus === "paid")
     .reduce((sum, order) => sum + order.subtotalMinor, 0);
+  // Every order in an account is in whatever currency was configured when it
+  // was placed. Rendering a SUM needs one currency, so use the newest order's
+  // rather than today's setting, which may have moved since.
+  const accountCurrency = orders[0]?.currency;
   const remaining = totalCost - amountPaid;
   const nextUnpaid = [...currentOrders]
     .filter((order) => order.paymentStatus === "unpaid")
@@ -110,7 +122,7 @@ export default async function AccountPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl bg-raised/70 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-subtle">Amount due</p>
-            <p className="mt-3 font-display text-3xl text-ink">{formatMoney(remaining)}</p>
+            <p className="mt-3 font-display text-3xl text-ink">{formatMoney(remaining, accountCurrency)}</p>
           </div>
           <div className="rounded-2xl bg-raised/70 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-subtle">Next payment deadline</p>
@@ -165,7 +177,7 @@ export default async function AccountPage() {
         <h2 className="mt-2 font-display text-4xl text-ink">Financial center</h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {[{ label: "Total event cost", value: totalCost }, { label: "Amount paid", value: amountPaid }, { label: "Remaining balance", value: remaining }].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-line p-5"><p className="text-xs font-bold uppercase tracking-[0.1em] text-ink-subtle">{item.label}</p><p className="mt-3 font-display text-3xl text-ink">{formatMoney(item.value)}</p></div>
+            <div key={item.label} className="rounded-2xl border border-line p-5"><p className="text-xs font-bold uppercase tracking-[0.1em] text-ink-subtle">{item.label}</p><p className="mt-3 font-display text-3xl text-ink">{formatMoney(item.value, accountCurrency)}</p></div>
           ))}
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -181,7 +193,7 @@ export default async function AccountPage() {
         <div className="mt-6 overflow-hidden rounded-2xl border border-line">
           {orders.length ? orders.map((order, index) => (
             <div key={order.id} className={`flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between ${index ? "border-t border-line" : ""}`}>
-              <div><p className="font-semibold text-ink">Invoice {order.reference}</p><p className="mt-1 text-sm text-ink-muted">{formatEventDate(order.eventDate)} / {formatMoney(order.subtotalMinor)}</p></div>
+              <div><p className="font-semibold text-ink">Invoice {order.reference}</p><p className="mt-1 text-sm text-ink-muted">{formatEventDate(order.eventDate)} / {formatMoney(order.subtotalMinor, order.currency)}</p></div>
               <div className="flex flex-wrap items-center gap-3"><PaymentBadge status={order.paymentStatus} /><Link href={`/orders/${order.token}`} className="text-sm font-semibold text-accent">{order.paymentStatus === "paid" ? "View receipt" : "View invoice"}</Link>{order.paymentStatus === "unpaid" && isPaymentConfigured && order.status !== "cancelled" ? <form action={startPaymentAction}><input type="hidden" name="token" value={order.token} /><SubmitButton pendingLabel="Opening..." className={secondaryButtonClass}>Pay now</SubmitButton></form> : null}</div>
             </div>
           )) : <EmptyState title="No invoices yet." />}

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { checkoutOrigins } from "@/lib/payments";
 import { contentSecurityPolicy } from "@/lib/security-headers";
 
 /**
@@ -35,6 +36,7 @@ export function proxy(request: NextRequest): NextResponse {
     nonce,
     development: process.env.NODE_ENV !== "production",
     supabaseUrl: process.env.SUPABASE_URL?.replace(/\/$/, ""),
+    checkoutOrigins: checkoutOrigins(),
   });
 
   // Next reads the nonce off the REQUEST header and puts it on the script tags

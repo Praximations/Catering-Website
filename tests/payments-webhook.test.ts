@@ -28,6 +28,7 @@ const stub: PaymentProvider = {
   id: "stub",
   label: "Stub",
   configured: true,
+  checkoutOrigins: ["https://checkout.stub.test"],
   startCheckout: async () => ({ reference: "ref_1", redirectUrl: "https://example.test/pay" }),
   readWebhook: async () => nextResult,
 };
@@ -39,6 +40,7 @@ const event = (over: Partial<PaymentEvent> = {}): PaymentEvent => ({
   orderId: null,
   amountMinor: null,
   currency: "usd",
+  paymentReference: "cs_test_reference",
   ...over,
 });
 
@@ -246,6 +248,65 @@ describe("handleWebhook", () => {
   it("records an event it understands but has nothing to do about", async () => {
     nextResult = { ok: true, event: event({ id: "stub:evt_ignored", kind: "ignored" }) };
     assert.match(await deliveredOutcome(), /^ignored /);
+  });
+
+  it("releases the claim when applying the event throws, so a retry can work", async () => {
+    // The expensive failure this exists for: without the release, a storage
+    // timeout leaves the claim behind, the provider's retry is answered
+    // "duplicate", the provider gives up, and an order the customer HAS BEEN
+    // CHARGED FOR stays unpaid forever.
+    const order = await anOrder();
+    nextResult = {
+      ok: true,
+      event: event({ id: "stub:evt_boom", orderId: order.id, amountMinor: 5000 }),
+    };
+
+    const realFind = db.orders.findOne.bind(db.orders);
+    db.orders.findOne = async () => {
+      throw new Error("storage timed out");
+    };
+
+    await assert.rejects(() => deliver(), /storage timed out/);
+    db.orders.findOne = realFind;
+
+    // The claim is gone, so the retry is a fresh attempt rather than a
+    // "duplicate" the provider takes as success.
+    assert.equal(await db.paymentEvents.count({ all: { id: "stub:evt_boom" } }), 0);
+
+    assert.equal(await deliveredOutcome(), `paid ${order.reference}`);
+    assert.equal((await findOrderById(order.id))?.paymentStatus, "paid");
+  });
+
+  it("does not write an unknown order id into the foreign key column", async () => {
+    // payment_events.order_id references orders(id). Writing an id that is not
+    // there, or a string that is not a uuid, turns a handled event into a 500,
+    // and with the claim already written every retry is told "duplicate".
+    nextResult = {
+      ok: true,
+      event: event({ id: "stub:evt_foreign", orderId: "not-a-uuid-at-all" }),
+    };
+
+    assert.match(await deliveredOutcome(), /no such order/);
+    const row = await db.paymentEvents.findOne({ all: { id: "stub:evt_foreign" } });
+    assert.equal(row?.orderId, null);
+  });
+
+  it("stores the provider's payment reference, not the event id", async () => {
+    // The column holds what somebody types into the provider's dashboard to
+    // find the payment. An event id identifies the notification about it.
+    const order = await anOrder();
+    nextResult = {
+      ok: true,
+      event: event({
+        id: "stub:evt_ref",
+        orderId: order.id,
+        amountMinor: 5000,
+        paymentReference: "cs_live_the_session",
+      }),
+    };
+
+    await deliver();
+    assert.equal((await findOrderById(order.id))?.paymentReference, "cs_live_the_session");
   });
 
   it("writes the order id onto the event row, for reading back in a dispute", async () => {

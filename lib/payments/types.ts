@@ -63,6 +63,12 @@ export interface PaymentEvent {
    */
   amountMinor: number | null;
   currency: string | null;
+  /**
+   * The provider's id for the PAYMENT, as opposed to `id`, which identifies
+   * this notification about it. Stored on the order, so it has to be the one
+   * somebody can look up in the provider's dashboard.
+   */
+  paymentReference: string | null;
 }
 
 export type WebhookResult =
@@ -75,6 +81,18 @@ export interface PaymentProvider {
   readonly label: string;
   /** False when its keys are not set, which makes the whole thing a no-op. */
   readonly configured: boolean;
+
+  /**
+   * The origins a customer's browser is sent to in order to pay.
+   *
+   * Needed by the Content Security Policy. `form-action` governs where a form
+   * may submit, and Firefox and Safari apply it ACROSS REDIRECTS: without the
+   * provider's checkout host listed, a Pay button that posts to a Server
+   * Action which then redirects to the provider is refused, and the customer
+   * lands on a blank page with no way to pay. Chrome does not check redirects,
+   * so this is invisible in the browser most people test in.
+   */
+  readonly checkoutOrigins: readonly string[];
 
   startCheckout(order: CustomerOrder, urls: CheckoutUrls): Promise<StartedCheckout>;
 

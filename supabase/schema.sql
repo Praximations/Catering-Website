@@ -511,11 +511,16 @@ create or replace view public.enquiry_counts
   from public.enquiries
   group by status;
 
+-- payment_status is in the grouping because a REFUNDED order is not revenue
+-- and is not cancelled either. Grouping by status alone gave the dashboard's
+-- revenue tile no way to exclude it, while the per-customer lifetime value on
+-- the same page already did, so the two numbers disagreed.
 create or replace view public.order_counts
   with (security_invoker = true) as
   select
     status,
+    payment_status,
     count(*)::bigint as count,
     coalesce(sum(subtotal_minor), 0)::bigint as subtotal_minor
   from public.orders
-  group by status;
+  group by status, payment_status;

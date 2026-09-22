@@ -27,6 +27,17 @@ export function findProvider(id: string): PaymentProvider | undefined {
   return PROVIDERS.find((provider) => provider.id === id);
 }
 
+/**
+ * Every origin a Pay button may end up submitting to, for the CSP's
+ * form-action. Only CONFIGURED providers, so a policy never names a host this
+ * deployment cannot reach.
+ */
+export function checkoutOrigins(): string[] {
+  return PROVIDERS.filter((provider) => provider.configured).flatMap(
+    (provider) => [...provider.checkoutOrigins]
+  );
+}
+
 export type WebhookOutcome =
   | { status: 400; body: { error: string } }
   | { status: 200; body: { received: true; outcome: string } };
@@ -81,38 +92,85 @@ export async function handleWebhook(
     return { status: 200, body: { received: true, outcome: "duplicate" } };
   }
 
-  const outcome = await apply(provider, event);
+  let applied: Applied;
+  try {
+    applied = await apply(provider, event);
+  } catch (error) {
+    /**
+     * RELEASE THE CLAIM. Without this, a transient failure inside apply()
+     * leaves the claim row behind, the provider retries, the retry is told
+     * "duplicate", the provider stops retrying, and an order the customer has
+     * been CHARGED for stays unpaid forever. A storage timeout is exactly the
+     * kind of failure a retry is supposed to fix.
+     *
+     * lib/control.ts releases its idempotency claim on failure for the same
+     * reason. This path did not, which is the more expensive place to miss it.
+     */
+    await db.paymentEvents.remove({ all: { id: event.id } }).catch(() => undefined);
+    console.error(`[payments] ${provider.id} event ${event.id} failed, claim released:`, error);
+    // 500, so the provider retries. Answering 200 would tell it not to.
+    throw error;
+  }
+
   await db.paymentEvents.update(
     { all: { id: event.id } },
-    { orderId: event.orderId, outcome }
+    {
+      // Only an order we actually found. payment_events.order_id is a foreign
+      // key, so writing an id that is not in orders, or a string that is not a
+      // uuid, turns a handled event into a 500 and, with the claim row already
+      // written, into a payment that is never recorded.
+      orderId: applied.orderId,
+      outcome: applied.outcome,
+    }
   );
-  return { status: 200, body: { received: true, outcome } };
+  return { status: 200, body: { received: true, outcome: applied.outcome } };
 }
 
+interface Applied {
+  /** Human readable, written to the event row and returned to the provider. */
+  outcome: string;
+  /**
+   * The order this actually touched, or null.
+   *
+   * Returned rather than kept in module scope, because two deliveries handled
+   * at once in one process would read each other's value.
+   */
+  orderId: string | null;
+}
+
+/** Shorthand, so each branch below reads as one line. */
+const nothing = (outcome: string): Applied => ({ outcome, orderId: null });
+
 /** What the event means for the order, once it is known to be genuine and new. */
-async function apply(provider: PaymentProvider, event: PaymentEvent): Promise<string> {
-  if (event.kind === "ignored") return `ignored ${event.type}`;
+async function apply(provider: PaymentProvider, event: PaymentEvent): Promise<Applied> {
+  if (event.kind === "ignored") return nothing(`ignored ${event.type}`);
 
   if (!event.orderId) {
     // Genuine, and about something that is not ours, or about an order whose
     // metadata was lost. Either way there is nothing to change.
-    return `no order id on ${event.type}`;
+    return nothing(`no order id on ${event.type}`);
   }
 
   const order = await findOrderById(event.orderId);
-  if (!order) return `no such order ${event.orderId}`;
+  // Null, not event.orderId: the column is a uuid foreign key, so writing an
+  // id that is not in orders fails the write rather than recording the event.
+  if (!order) return nothing(`no such order ${event.orderId}`);
+  const orderId = order.id;
 
   if (event.kind === "failed") {
     // Nothing to change: the order was already unpaid, and saying so in the
     // event log is the whole point of recording it.
-    return `payment failed for ${order.reference}`;
+    return { outcome: `payment failed for ${order.reference}`, orderId };
   }
 
   if (event.kind === "refunded") {
     const changed = await markOrderRefunded(order.id);
-    return changed
-      ? `refunded ${order.reference}`
-      : `refund ignored for ${order.reference}, it was not paid`;
+    return {
+      outcome: changed
+        ? `refunded ${order.reference}`
+        : `refund ignored for ${order.reference}, it was not paid`,
+      orderId,
+    };
   }
 
   // kind === "paid". The amount is checked against the ORDER, which was
@@ -123,17 +181,30 @@ async function apply(provider: PaymentProvider, event: PaymentEvent): Promise<st
     console.error(
       `[payments] ${provider.id} reported ${event.amountMinor} for order ${order.reference}, which is owed ${order.subtotalMinor}. Not marking it paid.`
     );
-    return `amount mismatch on ${order.reference}: reported ${event.amountMinor}, owed ${order.subtotalMinor}`;
+    return {
+      outcome: `amount mismatch on ${order.reference}: reported ${event.amountMinor}, owed ${order.subtotalMinor}`,
+      orderId,
+    };
   }
   if (event.currency && event.currency.toLowerCase() !== order.currency.toLowerCase()) {
     console.error(
       `[payments] ${provider.id} reported ${event.currency} for order ${order.reference}, priced in ${order.currency}. Not marking it paid.`
     );
-    return `currency mismatch on ${order.reference}: reported ${event.currency}, priced ${order.currency}`;
+    return {
+      outcome: `currency mismatch on ${order.reference}: reported ${event.currency}, priced ${order.currency}`,
+      orderId,
+    };
   }
 
-  const { changed } = await markOrderPaid(order.id, provider.id, event.id);
-  return changed ? `paid ${order.reference}` : `already paid ${order.reference}`;
+  // The PROVIDER'S reference for the payment, not this event's id. The column
+  // holds the id somebody types into the provider's dashboard to find the
+  // payment, which is the checkout session, not the notification about it.
+  const reference = event.paymentReference ?? event.id;
+  const { changed } = await markOrderPaid(order.id, provider.id, reference);
+  return {
+    outcome: changed ? `paid ${order.reference}` : `already paid ${order.reference}`,
+    orderId,
+  };
 }
 
 export type { PaymentProvider, PaymentEvent, StartedCheckout, CheckoutUrls } from "./types";

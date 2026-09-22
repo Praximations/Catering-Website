@@ -72,6 +72,8 @@ export interface TableSpec {
 /** Row counts grouped by status, from a database view. */
 export interface StatusCountRow {
   status: string;
+  /** Only on order_counts, which groups by it so refunds can be excluded. */
+  paymentStatus?: string;
   count: number;
   subtotalMinor?: number;
 }
