@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { clientAddress } from "@/lib/client-address";
 import { createContact, CONTACT_STATUSES, updateContactStatus } from "@/lib/contacts";
+import { bucketFor, checkRateLimit, PUBLIC_FORM_LIMIT } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import { choice, isEmail, LIMITS, Problems, text } from "@/lib/validation";
 
@@ -27,6 +29,14 @@ export async function submitContactAction(
   problems.when(subject.length < 3, "subject", "Add a short subject.");
   problems.when(message.length < 10, "message", "Tell us a little more.");
   if (problems.any) return { fieldErrors: problems.fieldErrors };
+
+  const limit = await checkRateLimit(
+    bucketFor("contact", await clientAddress()),
+    PUBLIC_FORM_LIMIT
+  );
+  if (!limit.allowed) {
+    return { error: "We have had a lot of messages from here. Please try again later." };
+  }
 
   const user = await getCurrentUser();
   await createContact({ userId: user?.id ?? null, name, email, phone, subject, message });

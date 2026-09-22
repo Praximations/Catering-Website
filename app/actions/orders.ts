@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { belowMinimum, clearCart, getCart } from "@/lib/cart";
+import { clientAddress } from "@/lib/client-address";
 import { ORDER_STATUSES, placeOrder, updateOrder } from "@/lib/orders";
 import { praxiOrderCreated, praxiOrderUpdated } from "@/lib/praxi";
+import { bucketFor, checkRateLimit, CHECKOUT_LIMIT } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import {
   checkEventDate,
@@ -88,6 +90,18 @@ export async function checkoutAction(
   // `guests === null` is already reported above; repeating it here is what
   // narrows the type without a cast the compiler would simply believe.
   if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors };
+
+  // Checkout writes an order every time it succeeds, so this is as much about
+  // keeping the owner's dashboard usable as it is about abuse.
+  const limit = await checkRateLimit(
+    bucketFor("checkout", await clientAddress()),
+    CHECKOUT_LIMIT
+  );
+  if (!limit.allowed) {
+    return {
+      error: "That is a lot of orders in a short time. Please call us so we can help directly.",
+    };
+  }
 
   const user = await getCurrentUser();
   const order = await placeOrder(cart, {

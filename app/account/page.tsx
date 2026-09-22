@@ -5,6 +5,7 @@ import {
   saveCustomerInfoAction,
   sendCustomerMessageAction,
 } from "@/app/actions/account";
+import { logoutEverywhereAction } from "@/app/actions/auth";
 import { startPaymentAction } from "@/app/actions/payments";
 import { formatEventDate, formatSentAt } from "@/components/enquiry";
 import { ArrowIcon, ContactIcon, OrderIcon } from "@/components/icons";
@@ -220,6 +221,23 @@ export default async function AccountPage() {
           <fieldset className="mt-6"><legend className="text-sm font-medium text-ink">Favorite collections</legend><div className="mt-3 flex flex-wrap gap-2">{menu.map((item) => <label key={item.slug} className="flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm text-ink-muted"><input type="checkbox" name="favoriteMenuSlugs" value={item.slug} defaultChecked={saved?.favoriteMenuSlugs.includes(item.slug)} /> {item.name}</label>)}</div></fieldset>
           <SubmitButton pendingLabel="Saving..." className={`${buttonClass} mt-7`}>Save information</SubmitButton>
         </form>
+      </section>
+
+      <section id="security" className="scroll-mt-28 pt-20">
+        <p className="eyebrow">Security</p>
+        <h2 className="mt-2 font-display text-4xl text-ink">Signed in somewhere else?</h2>
+        <div className="mt-6 rounded-[2rem] border border-line p-6 sm:p-8">
+          <p className="max-w-2xl text-sm leading-6 text-ink-muted">
+            Signing out only closes this browser. If you used a shared or public
+            computer, sign out everywhere: that ends every session on your
+            account, on every device, straight away.
+          </p>
+          <form action={logoutEverywhereAction} className="mt-6">
+            <SubmitButton pendingLabel="Signing out..." className={secondaryButtonClass}>
+              Sign out everywhere
+            </SubmitButton>
+          </form>
+        </div>
       </section>
     </main>
   );

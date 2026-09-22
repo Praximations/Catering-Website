@@ -1,9 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { clientAddress } from "@/lib/client-address";
 import { praxiCustomerCreated } from "@/lib/praxi";
-import { createSession, destroySession } from "@/lib/session";
-import { authenticate, createUser } from "@/lib/users";
+import {
+  bucketFor,
+  checkRateLimit,
+  clearRateLimit,
+  LOGIN_LIMIT,
+  SIGNUP_LIMIT,
+} from "@/lib/rate-limit";
+import { createSession, destroySession, getCurrentUser } from "@/lib/session";
+import { authenticate, createUser, revokeSessions } from "@/lib/users";
 import {
   isEmail,
   LIMITS,
@@ -48,6 +56,16 @@ export async function signupAction(
   );
   if (problems.any) return { fieldErrors: problems.fieldErrors };
 
+  // Keyed on the caller rather than the address, because the address is new
+  // every time: this limits how many accounts one source can create.
+  const limit = await checkRateLimit(
+    bucketFor("signup", await clientAddress()),
+    SIGNUP_LIMIT
+  );
+  if (!limit.allowed) {
+    return { error: "Too many accounts created from here. Please try again later." };
+  }
+
   const result = await createUser({ name, email, password });
   if (!result.ok) {
     // Sign up is the one place where "this address is taken" has to be
@@ -76,17 +94,60 @@ export async function loginAction(
     return { error: "Enter your email and password." };
   }
 
+  /**
+   * TWO BUCKETS, because either one alone has a hole.
+   *
+   * By ADDRESS, so one account cannot be ground through a password list, even
+   * from a rotating set of addresses. By CALLER, so one source cannot spray
+   * one common password across many accounts, which the per-address bucket
+   * never sees. The caller's address is spoofable behind a careless proxy,
+   * which is exactly why the email bucket is there too.
+   */
+  const perAccount = bucketFor("login", email);
+  const perCaller = bucketFor("login-source", await clientAddress());
+
+  const [accountLimit, callerLimit] = await Promise.all([
+    checkRateLimit(perAccount, LOGIN_LIMIT),
+    checkRateLimit(perCaller, LOGIN_LIMIT),
+  ]);
+
+  if (!accountLimit.allowed || !callerLimit.allowed) {
+    // Says nothing about whether the address exists.
+    return { error: "Too many sign in attempts. Please wait a few minutes and try again." };
+  }
+
   const user = await authenticate(email, password);
   if (!user) {
     // Deliberately does not say which half was wrong.
     return { error: "That email and password do not match an account." };
   }
 
+  // A successful sign in forgets the failures before it, so somebody who
+  // mistyped their password four times is not locked out tomorrow.
+  await Promise.all([clearRateLimit(perAccount), clearRateLimit(perCaller)]);
+
   await createSession(user.id);
   redirect(user.role === "owner" ? "/admin" : "/account");
 }
 
 export async function logoutAction(): Promise<void> {
+  await destroySession();
+  redirect("/");
+}
+
+/**
+ * Sign out of every browser, not just this one.
+ *
+ * Deleting the cookie only clears the copy in the browser doing the deleting.
+ * A signed cookie cannot be recalled, so this moves the account's session
+ * epoch instead, which every other cookie is then checked against and fails.
+ * This is the control somebody needs after using a shared machine.
+ */
+export async function logoutEverywhereAction(): Promise<void> {
+  const user = await getCurrentUser();
+  // Re-checked here, not just on the page: a Server Action is a public POST
+  // endpoint, and this one revokes credentials.
+  if (user) await revokeSessions(user.id);
   await destroySession();
   redirect("/");
 }

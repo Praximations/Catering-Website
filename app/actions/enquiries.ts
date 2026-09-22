@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createEnquiry, ENQUIRY_STATUSES, updateEnquiry } from "@/lib/enquiries";
+import { clientAddress } from "@/lib/client-address";
 import { menu } from "@/lib/menu";
 import { praxiEnquirySubmitted } from "@/lib/praxi";
+import { bucketFor, checkRateLimit, PUBLIC_FORM_LIMIT } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import {
   checkEventDate,
@@ -75,6 +77,18 @@ export async function submitEnquiryAction(
   // `guests === null` is already reported above; repeating it here is what
   // narrows the type without a cast the compiler would simply believe.
   if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors };
+
+  // Checked AFTER validation, so a genuine person correcting a typo does not
+  // spend an attempt on a form that was never going to be accepted.
+  const limit = await checkRateLimit(
+    bucketFor("enquiry", await clientAddress()),
+    PUBLIC_FORM_LIMIT
+  );
+  if (!limit.allowed) {
+    return {
+      error: "We have had a lot of enquiries from here. Please try again later, or call us.",
+    };
+  }
 
   // Under the minimum or inside the lead time is allowed, not blocked: it
   // is the kitchen's call, not the form's. The page says so up front, and
