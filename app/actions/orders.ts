@@ -6,7 +6,17 @@ import { belowMinimum, clearCart, getCart } from "@/lib/cart";
 import { ORDER_STATUSES, placeOrder, updateOrder } from "@/lib/orders";
 import { praxiOrderCreated, praxiOrderUpdated } from "@/lib/praxi";
 import { getCurrentUser } from "@/lib/session";
-import type { OrderStatus } from "@/lib/store";
+import {
+  checkEventDate,
+  checkGuests,
+  choice,
+  integer,
+  isEmail,
+  LIMITS,
+  MAX_GUESTS,
+  Problems,
+  text,
+} from "@/lib/validation";
 
 /**
  * Checkout, and the owner moving an order along.
@@ -19,20 +29,6 @@ import type { OrderStatus } from "@/lib/store";
 export interface CheckoutState {
   error?: string;
   fieldErrors?: Record<string, string>;
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_NOTES = 2000;
-
-function text(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function startOfToday(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 export async function checkoutAction(
@@ -52,35 +48,46 @@ export async function checkoutAction(
     };
   }
 
-  const name = text(formData, "name");
-  const email = text(formData, "email");
-  const phone = text(formData, "phone");
-  const eventDate = text(formData, "eventDate");
-  const address = text(formData, "address");
-  const notes = text(formData, "notes").slice(0, MAX_NOTES);
-  const guests = Number.parseInt(text(formData, "guests"), 10);
+  const name = text(formData, "name", LIMITS.name);
+  const email = text(formData, "email", LIMITS.email);
+  const phone = text(formData, "phone", LIMITS.phone);
+  const eventDate = text(formData, "eventDate", 10);
+  const address = text(formData, "address", LIMITS.address);
+  const notes = text(formData, "notes", LIMITS.notes);
+  const guests = integer(formData, "guests");
 
-  const fieldErrors: Record<string, string> = {};
-  if (name.length < 2) fieldErrors.name = "Please tell us your name.";
-  if (!EMAIL_RE.test(email)) fieldErrors.email = "We need an email address to confirm to.";
-  if (phone.length < 5) fieldErrors.phone = "A phone number, in case something changes on the day.";
-  if (address.length < 5) fieldErrors.address = "Where should we bring it?";
+  const problems = new Problems();
+  problems.when(name.length < 2, "name", "Please tell us your name.");
+  problems.when(!isEmail(email), "email", "We need an email address to confirm to.");
+  problems.when(
+    phone.length < 5,
+    "phone",
+    "A phone number, in case something changes on the day."
+  );
+  problems.when(address.length < 5, "address", "Where should we bring it?");
 
-  if (!DATE_RE.test(eventDate)) {
-    fieldErrors.eventDate = "Pick the date you need it.";
-  } else {
-    const parsed = new Date(`${eventDate}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) fieldErrors.eventDate = "That is not a real date.";
-    else if (parsed < startOfToday()) fieldErrors.eventDate = "That date has already passed.";
+  switch (checkEventDate(eventDate)) {
+    case "missing":
+    case "malformed":
+      problems.add("eventDate", "Pick the date you need it.");
+      break;
+    case "past":
+      problems.add("eventDate", "That date has already passed.");
+      break;
   }
 
-  if (!Number.isInteger(guests) || guests < 1) {
-    fieldErrors.guests = "Roughly how many people are eating?";
-  } else if (guests > 5000) {
-    fieldErrors.guests = "Please call us for an event that size.";
+  switch (checkGuests(guests)) {
+    case "missing":
+      problems.add("guests", "Roughly how many people are eating?");
+      break;
+    case "too_many":
+      problems.add("guests", `Please call us for an event over ${MAX_GUESTS} people.`);
+      break;
   }
 
-  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
+  // `guests === null` is already reported above; repeating it here is what
+  // narrows the type without a cast the compiler would simply believe.
+  if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors };
 
   const user = await getCurrentUser();
   const order = await placeOrder(cart, {
@@ -120,12 +127,12 @@ export async function updateOrderAction(formData: FormData): Promise<void> {
   const user = await getCurrentUser();
   if (!user || user.role !== "owner") return;
 
-  const id = text(formData, "id");
-  const status = text(formData, "status") as OrderStatus;
-  if (!id || !ORDER_STATUSES.includes(status)) return;
+  const id = text(formData, "id", LIMITS.id);
+  const status = choice(formData, "status", ORDER_STATUSES);
+  if (!id || !status) return;
 
   const ownerNotes = formData.has("ownerNotes")
-    ? text(formData, "ownerNotes").slice(0, MAX_NOTES)
+    ? text(formData, "ownerNotes", LIMITS.notes)
     : undefined;
 
   const updated = await updateOrder(id, {

@@ -5,7 +5,17 @@ import { createEnquiry, ENQUIRY_STATUSES, updateEnquiry } from "@/lib/enquiries"
 import { menu } from "@/lib/menu";
 import { praxiEnquirySubmitted } from "@/lib/praxi";
 import { getCurrentUser } from "@/lib/session";
-import type { EnquiryStatus } from "@/lib/store";
+import {
+  checkEventDate,
+  checkGuests,
+  choice,
+  integer,
+  isEmail,
+  LIMITS,
+  MAX_GUESTS,
+  Problems,
+  text,
+} from "@/lib/validation";
 
 /**
  * The enquiry form, and the owner moving an enquiry along.
@@ -22,62 +32,49 @@ export interface EnquiryFormState {
   fieldErrors?: Record<string, string>;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_NOTES = 2000;
-
-function text(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-/** Midnight today, so "is this date in the past" ignores the clock. */
-function startOfToday(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
 export async function submitEnquiryAction(
   _prevState: EnquiryFormState | undefined,
   formData: FormData
 ): Promise<EnquiryFormState> {
-  const name = text(formData, "name");
-  const email = text(formData, "email");
-  const phone = text(formData, "phone");
-  const eventDate = text(formData, "eventDate");
-  const guestsText = text(formData, "guests");
-  const packageSlug = text(formData, "packageSlug");
-  const notes = text(formData, "notes").slice(0, MAX_NOTES);
+  const name = text(formData, "name", LIMITS.name);
+  const email = text(formData, "email", LIMITS.email);
+  const phone = text(formData, "phone", LIMITS.phone);
+  const eventDate = text(formData, "eventDate", 10);
+  const packageSlug = text(formData, "packageSlug", 64);
+  const notes = text(formData, "notes", LIMITS.notes);
+  const guests = integer(formData, "guests");
 
-  const fieldErrors: Record<string, string> = {};
+  const problems = new Problems();
+  problems.when(name.length < 2, "name", "Please tell us your name.");
+  problems.when(!isEmail(email), "email", "We need an email address to reply to.");
 
-  if (name.length < 2) fieldErrors.name = "Please tell us your name.";
-  if (!EMAIL_RE.test(email)) fieldErrors.email = "We need an email address to reply to.";
-
-  if (!DATE_RE.test(eventDate)) {
-    fieldErrors.eventDate = "Pick the date of your event.";
-  } else {
-    const parsed = new Date(`${eventDate}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) {
-      fieldErrors.eventDate = "That is not a real date.";
-    } else if (parsed < startOfToday()) {
-      fieldErrors.eventDate = "That date has already passed.";
-    }
+  switch (checkEventDate(eventDate)) {
+    case "missing":
+    case "malformed":
+      problems.add("eventDate", "Pick the date of your event.");
+      break;
+    case "past":
+      problems.add("eventDate", "That date has already passed.");
+      break;
   }
 
-  const guests = Number.parseInt(guestsText, 10);
-  if (!Number.isInteger(guests) || guests < 1) {
-    fieldErrors.guests = "Roughly how many people are coming?";
-  } else if (guests > 5000) {
-    fieldErrors.guests = "Please call us for an event that size.";
+  switch (checkGuests(guests)) {
+    case "missing":
+      problems.add("guests", "Roughly how many people are coming?");
+      break;
+    case "too_many":
+      problems.add("guests", `Please call us for an event over ${MAX_GUESTS} people.`);
+      break;
   }
 
-  const validPackages = new Set([...menu.map((p) => p.slug), "unsure"]);
-  if (!validPackages.has(packageSlug)) {
-    fieldErrors.packageSlug = "Choose one of the options.";
+  const validPackages = [...menu.map((p) => p.slug), "unsure"];
+  if (!validPackages.includes(packageSlug)) {
+    problems.add("packageSlug", "Choose one of the options.");
   }
 
-  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
+  // `guests === null` is already reported above; repeating it here is what
+  // narrows the type without a cast the compiler would simply believe.
+  if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors };
 
   // Under the minimum or inside the lead time is allowed, not blocked: it
   // is the kitchen's call, not the form's. The page says so up front, and
@@ -110,12 +107,12 @@ export async function updateEnquiryAction(formData: FormData): Promise<void> {
   const user = await getCurrentUser();
   if (!user || user.role !== "owner") return;
 
-  const id = text(formData, "id");
-  const status = text(formData, "status") as EnquiryStatus;
-  if (!id || !ENQUIRY_STATUSES.includes(status)) return;
+  const id = text(formData, "id", LIMITS.id);
+  const status = choice(formData, "status", ENQUIRY_STATUSES);
+  if (!id || !status) return;
 
   const ownerNotes = formData.has("ownerNotes")
-    ? text(formData, "ownerNotes").slice(0, MAX_NOTES)
+    ? text(formData, "ownerNotes", LIMITS.notes)
     : undefined;
 
   await updateEnquiry(id, { status, ...(ownerNotes === undefined ? {} : { ownerNotes }) });

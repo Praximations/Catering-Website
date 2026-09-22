@@ -4,6 +4,14 @@ import { redirect } from "next/navigation";
 import { praxiCustomerCreated } from "@/lib/praxi";
 import { createSession, destroySession } from "@/lib/session";
 import { authenticate, createUser } from "@/lib/users";
+import {
+  isEmail,
+  LIMITS,
+  MIN_PASSWORD_LENGTH,
+  password as readPassword,
+  Problems,
+  text,
+} from "@/lib/validation";
 
 /**
  * Sign up, sign in, sign out.
@@ -22,29 +30,23 @@ export interface FormState {
   fieldErrors?: Record<string, string>;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD = 8;
-
-function text(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
 export async function signupAction(
   _prevState: FormState | undefined,
   formData: FormData
 ): Promise<FormState> {
-  const name = text(formData, "name");
-  const email = text(formData, "email");
-  const password = text(formData, "password");
+  const name = text(formData, "name", LIMITS.name);
+  const email = text(formData, "email", LIMITS.email);
+  const password = readPassword(formData, "password");
 
-  const fieldErrors: Record<string, string> = {};
-  if (name.length < 2) fieldErrors.name = "Please give us a name to call you by.";
-  if (!EMAIL_RE.test(email)) fieldErrors.email = "That does not look like an email address.";
-  if (password.length < MIN_PASSWORD) {
-    fieldErrors.password = `Use at least ${MIN_PASSWORD} characters.`;
-  }
-  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
+  const problems = new Problems();
+  problems.when(name.length < 2, "name", "Please give us a name to call you by.");
+  problems.when(!isEmail(email), "email", "That does not look like an email address.");
+  problems.when(
+    password.length < MIN_PASSWORD_LENGTH,
+    "password",
+    `Use at least ${MIN_PASSWORD_LENGTH} characters.`
+  );
+  if (problems.any) return { fieldErrors: problems.fieldErrors };
 
   const result = await createUser({ name, email, password });
   if (!result.ok) {
@@ -67,8 +69,8 @@ export async function loginAction(
   _prevState: FormState | undefined,
   formData: FormData
 ): Promise<FormState> {
-  const email = text(formData, "email");
-  const password = text(formData, "password");
+  const email = text(formData, "email", LIMITS.email);
+  const password = readPassword(formData, "password");
 
   if (!email || !password) {
     return { error: "Enter your email and password." };

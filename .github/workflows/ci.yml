@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push to the same branch makes an in-flight run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # 22.18 or newer: the test suite relies on Node stripping types on
+          # its own, which is what keeps a transpiler out of the dev deps.
+          node-version: "22.x"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Last, because it is the slowest and the three above localize a
+      # failure better than a build log does.
+      - name: Build
+        run: npm run build
+        env:
+          # The build must not depend on real credentials. A dummy secret
+          # proves the production guard in lib/session.ts is satisfied by
+          # configuration rather than by a file on disk.
+          SESSION_SECRET: ci-build-only-not-a-real-secret-0000

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { addToCart, clearCart, removeFromCart, setCartQuantity } from "@/lib/cart";
+import { integer, text } from "@/lib/validation";
 
 /**
  * Cart mutations. Plain form actions, no client JavaScript, so adding to
@@ -12,30 +13,28 @@ import { addToCart, clearCart, removeFromCart, setCartQuantity } from "@/lib/car
  * lib/cart.ts, so nothing here trusts the form.
  */
 
-function quantityFrom(formData: FormData, key: string, fallback: number): number {
-  const raw = formData.get(key);
-  const parsed = Number.parseInt(typeof raw === "string" ? raw : "", 10);
-  return Number.isInteger(parsed) ? parsed : fallback;
-}
+/** Long enough for any slug in lib/shop.ts, short enough to bound the key. */
+const MAX_SLUG = 64;
 
-function slugFrom(formData: FormData): string {
-  const slug = formData.get("slug");
-  return typeof slug === "string" ? slug : "";
+function quantity(formData: FormData): number {
+  // One is the sensible reading of a missing or malformed quantity on an
+  // "add to cart" button. lib/cart.ts clamps the upper bound.
+  return integer(formData, "quantity") ?? 1;
 }
 
 export async function addToCartAction(formData: FormData): Promise<void> {
-  await addToCart(slugFrom(formData), quantityFrom(formData, "quantity", 1));
+  await addToCart(text(formData, "slug", MAX_SLUG), quantity(formData));
   // The header badge and the shop page both show cart state.
   revalidatePath("/", "layout");
 }
 
 export async function setQuantityAction(formData: FormData): Promise<void> {
-  await setCartQuantity(slugFrom(formData), quantityFrom(formData, "quantity", 1));
+  await setCartQuantity(text(formData, "slug", MAX_SLUG), quantity(formData));
   revalidatePath("/", "layout");
 }
 
 export async function removeFromCartAction(formData: FormData): Promise<void> {
-  await removeFromCart(slugFrom(formData));
+  await removeFromCart(text(formData, "slug", MAX_SLUG));
   revalidatePath("/", "layout");
 }
 

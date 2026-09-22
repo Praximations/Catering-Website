@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { approveRequest, denyRequest } from "@/lib/control";
 import { mintControlKey, revokeControlKey } from "@/lib/controlKeys";
-import { setMode, resetPermissions } from "@/lib/permissions";
+import { PERMISSION_MODES, setMode, resetPermissions } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
-import type { PermissionMode } from "@/lib/store";
+import { choice, LIMITS, text } from "@/lib/validation";
 
 /**
  * The owner's controls over Praxi: what it may do, which keys it holds,
@@ -23,16 +23,14 @@ async function requireOwnerActor(): Promise<string | null> {
   return user.email;
 }
 
-function text(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
 export async function setPermissionAction(formData: FormData): Promise<void> {
   if (!(await requireOwnerActor())) return;
 
-  const mode = text(formData, "mode") as PermissionMode;
-  await setMode(text(formData, "capability"), mode);
+  // Checked against the real set rather than cast: a cast is a claim
+  // about a value an attacker chose.
+  const mode = choice(formData, "mode", PERMISSION_MODES);
+  if (!mode) return;
+  await setMode(text(formData, "capability", LIMITS.id), mode);
   revalidatePath("/admin/praxi");
 }
 
@@ -54,14 +52,14 @@ export async function mintKeyAction(
 ): Promise<KeyState> {
   if (!(await requireOwnerActor())) return { error: "Only the owner can do that." };
 
-  const { token } = await mintControlKey(text(formData, "label") || "Praxi");
+  const { token } = await mintControlKey(text(formData, "label", LIMITS.name) || "Praxi");
   revalidatePath("/admin/praxi");
   return { token };
 }
 
 export async function revokeKeyAction(formData: FormData): Promise<void> {
   if (!(await requireOwnerActor())) return;
-  await revokeControlKey(text(formData, "id"));
+  await revokeControlKey(text(formData, "id", LIMITS.id));
   revalidatePath("/admin/praxi");
 }
 
@@ -69,7 +67,7 @@ export async function approveAction(formData: FormData): Promise<void> {
   const actor = await requireOwnerActor();
   if (!actor) return;
 
-  await approveRequest(text(formData, "id"), actor);
+  await approveRequest(text(formData, "id", LIMITS.id), actor);
   // The approved action may have changed an order, a price, or the site
   // notice, so refresh everything rather than guessing which.
   revalidatePath("/", "layout");
@@ -81,7 +79,7 @@ export async function denyAction(formData: FormData): Promise<void> {
   const actor = await requireOwnerActor();
   if (!actor) return;
 
-  await denyRequest(text(formData, "id"), actor);
+  await denyRequest(text(formData, "id", LIMITS.id), actor);
   revalidatePath("/admin");
   revalidatePath("/admin/praxi");
 }

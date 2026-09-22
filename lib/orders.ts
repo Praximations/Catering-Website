@@ -158,6 +158,17 @@ export async function listOrdersForUser(
     .map(forCustomer);
 }
 
+/**
+ * Whether this order is that account's, by id or by the address it was
+ * placed under. Used wherever an order id arrives in a form field: the id
+ * is a request to act on an order, never proof of owning it.
+ */
+export async function orderBelongsToUser(orderId: string, userId: string): Promise<boolean> {
+  if (!orderId || !userId) return false;
+  const data = await readData();
+  return data.orders.some((order) => order.id === orderId && order.userId === userId);
+}
+
 /** Returns the updated order so the caller can tell Praxi what changed. */
 export async function updateOrder(
   id: string,
