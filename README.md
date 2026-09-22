@@ -13,11 +13,25 @@ owner dashboard for the enquiries that come in.
 `npm run verify` runs the four in the order that localizes a failure
 fastest: typecheck, lint, test, then build.
 
+    npm run smoke                  # browser checks, needs a running server
+
 Tests run on Node's own test runner. Node 22 strips types without
 compiling, so there is no transpiler and no test dependency to install.
 That does mean three pieces of TypeScript syntax cannot be used anywhere in
 the project: parameter properties, `enum`, and `namespace`. `npm run lint`
 rejects all three with a message explaining why.
+
+`npm run smoke` is separate and not part of `verify`. It drives a real
+browser against a running server, because four things cannot be checked any
+other way: that checkout's post-redirect-get actually lands on the order
+page, that the Content Security Policy blocks an injected script AND does
+not break hydration, that signing out everywhere ends a session in a
+DIFFERENT browser, and that an order token is the only route to an order. It
+needs Playwright, which is deliberately not a dependency of this project:
+
+    npm i -g playwright && npx playwright install chromium
+
+It writes real data, so point it at a development server.
 
 No configuration is needed to run it. Copy `.env.example` to `.env.local`
 if you want to set any of it.

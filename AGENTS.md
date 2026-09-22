@@ -308,6 +308,13 @@ What is worth testing here, and why those things:
   make `timingSafeEqual` throw and return a 500 instead of a refusal.
 - **Validation**, because the caps are a security control.
 
+`npm run smoke` is a separate browser pass over a running server, for the
+four claims that cannot be checked without one: checkout's post, redirect,
+get; that the CSP blocks an injection AND leaves hydration working; that
+signing out everywhere reaches a second browser; and that an order token is
+the only route in. Playwright is deliberately not a dependency, so it is
+installed separately and `npm run verify` does not run it.
+
 A test that writes files puts them under `.test-tmp/`, which is gitignored.
 Do not use `os.tmpdir()`: a sandboxed runner may redirect it into the
 working tree, and a test that leaks files there gets committed by accident.
@@ -332,6 +339,7 @@ visitor can see it. Swap the values, keep the names.
 
     npm run dev -- --port 3100
     npm run verify                 typecheck, lint, test, build
+    npm run smoke                  browser checks, needs a running server
 
 Port 3000 belongs to `praximations-web-new`, which is often running.
 
