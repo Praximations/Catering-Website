@@ -110,6 +110,9 @@ export default function MenuPage() {
                         <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-highlight" />
                         <h3 className="font-display text-xl leading-tight text-ink">{item.name}</h3>
                       </div>
+                      {item.price ? (
+                        <p className="mt-3 text-xs font-bold uppercase tracking-[0.08em] text-accent">{item.price}</p>
+                      ) : null}
                       <p className="mt-3 text-sm leading-6 text-ink-muted">{item.description}</p>
                       {item.tags?.length ? (
                         <div className="mt-4 flex flex-wrap gap-1.5">

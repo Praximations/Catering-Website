@@ -54,3 +54,22 @@ export function ArrowIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function InstagramIcon(props: IconProps) {
+  return (
+    <svg {...shared} {...props}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M17.5 6.5h.01" />
+    </svg>
+  );
+}
+
+export function FacebookIcon(props: IconProps) {
+  return (
+    <svg {...shared} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.5 8.5h-1.2c-1 0-1.8.8-1.8 1.8V21M8.5 13h7" />
+    </svg>
+  );
+}

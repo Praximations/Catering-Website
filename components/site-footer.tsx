@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { ArrowIcon } from "@/components/icons";
+import { ArrowIcon, FacebookIcon, InstagramIcon } from "@/components/icons";
 import { business, isPlaceholderBusiness } from "@/lib/business";
 
 export function SiteFooter() {
+  const socials = [
+    { label: "Instagram", href: business.social.instagram, icon: InstagramIcon },
+    { label: "Facebook", href: business.social.facebook, icon: FacebookIcon },
+  ];
+
   return (
     <footer className="mt-24 px-4 pb-4 sm:px-6 sm:pb-6">
       <div className="mx-auto w-full max-w-[90rem] overflow-hidden rounded-[2rem] bg-accent text-on-accent sm:rounded-[2.75rem]">
@@ -21,6 +26,33 @@ export function SiteFooter() {
               Good food for the days that matter.
             </p>
             <p className="mt-4 max-w-sm text-sm leading-6 text-on-accent/65">{business.serviceArea}</p>
+            <div className="mt-7 flex items-center gap-2">
+              {socials.map((social) => {
+                const Icon = social.icon;
+                const className = "grid size-10 place-items-center rounded-full border border-on-accent/20 text-on-accent transition-colors";
+                return social.href ? (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={social.label}
+                    className={`${className} hover:border-on-accent/50 hover:bg-on-accent/10`}
+                  >
+                    <Icon className="size-4" />
+                  </a>
+                ) : (
+                  <span
+                    key={social.label}
+                    aria-label={`${social.label} link not configured`}
+                    title={`Add the ${social.label} URL in lib/business.ts`}
+                    className={`${className} cursor-default opacity-50`}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                );
+              })}
+            </div>
           </div>
 
           <nav aria-label="Footer" className="grid content-start gap-3 text-sm text-on-accent/70">

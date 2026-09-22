@@ -18,6 +18,11 @@ export const business = {
   email: "hello@example.com",
   phone: "(555) 010-0000",
   serviceArea: "Placeholder County and about an hour around it",
+  /** Leave blank until the real profile URLs are ready. Icons still appear as placeholders. */
+  social: {
+    instagram: "",
+    facebook: "",
+  },
   /** How much notice you need. Shown on the quote form so nobody is surprised. */
   leadTimeDays: 14,
   /** Smallest booking you take. Shown honestly rather than discovered later. */
