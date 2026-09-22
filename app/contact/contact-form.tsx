@@ -5,7 +5,11 @@ import { submitContactAction, type ContactFormState } from "@/app/actions/contac
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 
-export function ContactForm({ defaults }: { defaults: { name: string; email: string } }) {
+export function ContactForm({
+  defaults,
+}: {
+  defaults: { name: string; email: string; subject?: string };
+}) {
   const [state, action] = useActionState<ContactFormState | undefined, FormData>(
     submitContactAction,
     undefined
@@ -31,15 +35,15 @@ export function ContactForm({ defaults }: { defaults: { name: string; email: str
         </Field>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Phone" htmlFor="phone" hint="Optional">
+        <Field label="Phone (optional)" htmlFor="phone">
           <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="(555) 000-0000" className={inputClass} />
         </Field>
         <Field label="Subject" htmlFor="subject" error={errors.subject}>
-          <input id="subject" name="subject" placeholder="Event, order, or question" className={inputClass} />
+          <input id="subject" name="subject" defaultValue={defaults.subject} placeholder="Event, order, or question" className={inputClass} />
         </Field>
       </div>
       <Field label="Message" htmlFor="message" error={errors.message}>
-        <textarea id="message" name="message" rows={6} maxLength={2000} placeholder="How can we help?" className={inputClass} />
+        <textarea id="message" name="message" rows={6} maxLength={2000} placeholder="Tell us about your event, or what you need help with." className={inputClass} />
       </Field>
       <SubmitButton pendingLabel="Sending..." className={`${buttonClass} w-full sm:w-auto`}>
         Send message

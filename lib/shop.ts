@@ -12,6 +12,7 @@
  */
 
 import { business } from "./business";
+import type { DietaryTag } from "./dietary";
 
 /** What a quantity MEANS for this product, which changes how it is priced. */
 export type ProductUnit = "person" | "item" | "sandwich";
@@ -27,6 +28,13 @@ export interface Product {
   category: "sandwich" | "package" | "platter" | "extra";
   /** Smallest order we will take of this line. */
   minQuantity: number;
+  /**
+   * How much to order, in the words a caterer would use on the phone. The
+   * question every customer has at this point is "how many do I need", and a
+   * price alone does not answer it.
+   */
+  serves?: string;
+  dietary?: DietaryTag[];
 }
 
 export const products: Product[] = [
@@ -41,6 +49,8 @@ export const products: Product[] = [
     unit: "sandwich",
     category: "sandwich",
     minQuantity: 50,
+    serves: "Allow one and a half to two per guest",
+    dietary: ["vegetarian options"],
   },
   {
     slug: "vegetarian-sandwich-assortment",
@@ -53,6 +63,8 @@ export const products: Product[] = [
     unit: "sandwich",
     category: "sandwich",
     minQuantity: 50,
+    serves: "Allow one and a half to two per guest",
+    dietary: ["vegetarian"],
   },
   {
     slug: "premium-sandwich-assortment",
@@ -65,6 +77,7 @@ export const products: Product[] = [
     unit: "sandwich",
     category: "sandwich",
     minQuantity: 50,
+    serves: "Allow one and a half to two per guest",
   },
   {
     slug: "buffet-per-head",
@@ -87,7 +100,7 @@ export const products: Product[] = [
   },
   {
     slug: "canapes-per-head",
-    name: "Canapes",
+    name: "Canapés",
     description: "Six passed bites a head, for a standing event of an hour or two.",
     priceMinor: 2400,
     unit: "person",
@@ -106,29 +119,34 @@ export const products: Product[] = [
   {
     slug: "cheese-board",
     name: "Cheese board",
-    description: "Four cheeses, crackers, fruit, and honey. Feeds about ten.",
+    description: "Four cheeses, crackers, fruit, and honey.",
     priceMinor: 6500,
     unit: "item",
     category: "platter",
     minQuantity: 1,
+    serves: "Feeds about ten",
+    dietary: ["vegetarian"],
   },
   {
     slug: "brownie-tray",
     name: "Brownie tray",
-    description: "Sixteen squares, still slightly underbaked in the middle, as they should be.",
+    description: "Still slightly underbaked in the middle, as they should be.",
     priceMinor: 3200,
     unit: "item",
     category: "platter",
     minQuantity: 1,
+    serves: "Sixteen squares",
+    dietary: ["vegetarian"],
   },
   {
     slug: "staff-hour",
     name: "Service staff",
-    description: "One member of staff on site, per hour, to serve and clear.",
+    description: "One member of staff on site to serve and clear.",
     priceMinor: 3500,
     unit: "item",
     category: "extra",
     minQuantity: 3,
+    serves: "Priced per member of staff, per hour",
   },
 ];
 
@@ -182,17 +200,17 @@ export function formatMoney(minor: number, currency: string = business.currency)
 }
 
 export const CATEGORY_LABELS: Record<Product["category"], string> = {
-  sandwich: "Sandwich collections",
-  package: "By the head",
-  platter: "Platters and trays",
-  extra: "Extras",
+  sandwich: "Sandwich platters",
+  package: "Priced per guest",
+  platter: "Sharing platters and desserts",
+  extra: "Staff and service",
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<Product["category"], string> = {
-  sandwich: "Prepared fresh and sold in bulk. Choose at least 50 sandwiches from each assortment.",
-  package: "Complete menus priced for each guest, with a 20-person minimum unless noted.",
-  platter: "Useful additions for a buffet table, team lunch, or afternoon meeting.",
-  extra: "Service details that help the day run smoothly.",
+  sandwich: "Made the morning of your order and delivered on platters, ready to put out.",
+  package: "Complete menus with everything included. Tell us the head count and we plan the quantities.",
+  platter: "Add to a lunch or order on their own for a meeting.",
+  extra: "Someone on site to set out the food, serve, and clear away afterwards.",
 };
 
 export const CATEGORY_ORDER: Product["category"][] = ["sandwich", "package", "platter", "extra"];

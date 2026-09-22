@@ -18,7 +18,7 @@ export const business = {
   email: "hello@example.com",
   phone: "(555) 010-0000",
   serviceArea: "Placeholder County and about an hour around it",
-  /** Leave blank until the real profile URLs are ready. Icons still appear as placeholders. */
+  /** Leave blank until the real profile URLs are ready. The footer shows only the ones that are set. */
   social: {
     instagram: "",
     facebook: "",

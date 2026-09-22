@@ -46,18 +46,19 @@ if you want to set any of it.
 
 ## The pages
 
-    /                 home
-    /menu             the four packages and their dishes
-    /shop             order bulk sandwiches, packages, platters, and extras
-    /cart             the cart and checkout
-    /orders/[token]   order confirmation, reachable by its own link
-    /about            how booking works and the practical details
-    /contact          the enquiry form, open to everyone, no account needed
+    /                 home: what we do, prices from, how ordering works, FAQ
+    /shop             order online: sandwich platters, per-guest menus,
+                      sharing platters, staff
+    /menu             event menus, quoted rather than ordered online
+    /about            how it works: ordering online vs. catering an event
+    /contact          enquiries and quote requests; ?subject= prefills
+    /cart             the order and checkout
+    /orders/[token]   order confirmation and progress, reachable by its link
     /quote            kept as a redirect to /shop, for old links
     /login            sign in
     /signup           create an account
-    /account          customer portal: events, orders, payments, messages,
-                      reordering, and saved preferences
+    /account          customer account: orders, payments, messages,
+                      reordering, saved details, sign out everywhere
     /admin            the owner's dashboard: orders and enquiries, statuses,
                       private notes
     /admin/praxi      what Praxi may do, what it has asked for, what it did

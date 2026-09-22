@@ -164,6 +164,41 @@ request-independent headers, and `proxy.ts` sends the CSP.
   `/orders/<token>` is reachable without an account, so that path is a
   credential and a full-path referrer would hand it away.
 
+## The public pages, and how they should read
+
+The site is for somebody booking catering, so every public page answers
+their questions in order: what do you do, can you do it for me, what does
+it cost, how do I book. Rules:
+
+- **No template tells.** No tracked all-caps label above a heading, no
+  italic "accent" phrase inside a headline, no "01 / 02 / 03" decoration,
+  no marketing caption laid over a photo, no card inside a card, no
+  hover-lift on buttons. `tests/conventions.test.ts` rejects the eyebrow
+  label and one-off radii on public pages, and any hex colour in a class.
+  The owner's screens under `app/admin` keep a quiet context label.
+- **Radii are the tokens**, `rounded-sm/md/lg`, which are deliberately
+  tight. Buttons are `buttonClass` / `secondaryButtonClass` /
+  `textLinkClass` from `components/ui.tsx`.
+- **Headline numbers are derived, never typed.** "From 8 people", "from
+  $18.00 a guest" and the sandwich minimum come from `lib/facts.ts`, which
+  reads `lib/shop.ts` and `lib/menu.ts`. A price in copy that disagrees with
+  the basket reads as bait and switch.
+- **Dietary labels come from `lib/dietary.ts`** and render with
+  `DietaryMarks` beside the dish plus a `DietaryLegend` on the page.
+  "Vegetarian" and "vegetarian on request" are different promises and render
+  differently.
+- **The FAQ states only what the site actually does.** No cancellation
+  window, delivery fee or refund promise until the business sets one. Any
+  answer about paying online is conditional on `isPaymentConfigured`.
+- **Never name a payment provider in `app/`.** Use `activeProvider().label`.
+- **The event menus are quoted, not sold online.** `/menu` links to
+  `/contact?subject=...`, never to `/shop`, because the shop does not sell
+  those dishes. The contact page prefills the subject, capped at
+  `LIMITS.subject`.
+- **The phone number is in the header.** People book caterers by phone.
+- On a phone the food photo comes first on the home page, and `/shop` shows
+  a bottom order bar below `xl`, where the basket sidebar is hidden.
+
 ## Next.js 16 specifics that bite
 
 - `cookies()`, `headers()`, `params`, and `searchParams` are ASYNC. Await

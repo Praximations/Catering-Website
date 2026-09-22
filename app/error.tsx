@@ -33,8 +33,7 @@ export default function Error({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-24 text-center">
-      <p className="eyebrow">Something went wrong</p>
-      <h1 className="mt-3 font-display text-5xl text-ink">That did not work.</h1>
+      <h1 className="font-display text-5xl text-ink">That did not work.</h1>
       <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-ink-muted">
         Something on our side failed rather than anything you did. Trying again
         often works, because the usual cause is a request that took too long.

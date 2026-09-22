@@ -20,8 +20,7 @@ export const metadata: Metadata = {
 export default function NotFound() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-24 text-center">
-      <p className="eyebrow">404</p>
-      <h1 className="mt-3 font-display text-5xl text-ink">We cannot find that page.</h1>
+      <h1 className="font-display text-5xl text-ink">We cannot find that page.</h1>
       <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-ink-muted">
         The link may be out of date, or the address may have a typo in it. If you
         were looking for an order, use the link from your confirmation: it is the

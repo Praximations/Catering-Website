@@ -1,99 +1,124 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader } from "@/components/ui";
-import { business, isPlaceholderBusiness } from "@/lib/business";
+import { Faq } from "@/components/faq";
+import { FactList, PageHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
+import { business } from "@/lib/business";
+import {
+  leadTimeDays,
+  minimumEventGuests,
+  sandwichMinimum,
+  serviceArea,
+  smallestOnlineOrder,
+} from "@/lib/facts";
+import { isPaymentConfigured } from "@/lib/payments";
 
 export const metadata: Metadata = {
-  title: "About",
-  description: `About ${business.name}.`,
+  title: "How it works",
+  description: `How ordering and event catering work with ${business.name}.`,
 };
 
-const steps = [
+/**
+ * Two ways to book, laid side by side, because they genuinely differ: an
+ * online order is priced and placed in one go, an event is quoted first. A
+ * single list of steps blurred the two and left people unsure which applied.
+ *
+ * Every step describes what the site and the business actually do. The
+ * payment step changes with whether a payment provider is configured, rather
+ * than promising online payment on a site that cannot take it.
+ */
+const paths = [
   {
-    number: "01",
-    title: "Tell us what matters",
-    body: "Send the date, guest count, venue, and dietary needs. A direct online order is enough for standard lunch delivery.",
+    title: "Ordering online",
+    lede: "For office lunches, meetings, and anything on the online menu.",
+    steps: [
+      "Choose your food and quantities. Each item shows its minimum and how much to allow per guest.",
+      "Add the date, the address, the head count, and any allergies at checkout.",
+      "We check the date and confirm the order with you. Nothing is charged before this.",
+      isPaymentConfigured
+        ? "Pay securely online from your confirmation page, or settle it with us directly."
+        : "We arrange payment with you directly.",
+      "We deliver on the day, labelled and ready to serve.",
+    ],
+    action: { href: "/shop", label: "Order online" },
   },
   {
-    number: "02",
-    title: "We confirm the plan",
-    body: "We check the diary, confirm the menu, and send one clear price. Nothing is charged before that conversation.",
-  },
-  {
-    number: "03",
-    title: "We cook and deliver",
-    body: "Everything is prepared for your date, labeled clearly, and brought ready to serve or set up as agreed.",
+    title: "Catering an event",
+    lede: "For buffets, dinners, receptions, and anything made to measure.",
+    steps: [
+      "Tell us the date, the number of guests, where it is, and what they cannot eat.",
+      "We suggest a menu from our event menus and send you one clear price.",
+      "Once you are happy with it, we book your date.",
+      "We cook for the day and deliver, with staff to serve and clear if you want them.",
+    ],
+    action: { href: "/contact?subject=Event%20catering%20quote", label: "Ask for a quote" },
   },
 ];
 
 export default function AboutPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-6 sm:py-18">
-      <PageHeader eyebrow="How it works" title="Catering without the guesswork." lede={business.blurb} />
+    <main className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
+      <PageHeader
+        title="How it works"
+        lede="There are two ways to book with us: order a lunch online in a few minutes, or ask us to quote for an event."
+      />
 
-      <ol className="grid border-y border-line md:grid-cols-3">
-        {steps.map((step, index) => (
-          <li
-            key={step.number}
-            className={`py-8 md:px-8 ${index > 0 ? "border-t border-line md:border-l md:border-t-0" : ""}`}
-          >
-            <span className="text-xs font-semibold text-highlight">{step.number}</span>
-            <h2 className="mt-4 font-display text-2xl text-ink">{step.title}</h2>
-            <p className="mt-3 text-sm leading-6 text-ink-muted">{step.body}</p>
-          </li>
+      <div className="grid gap-6 md:grid-cols-2">
+        {paths.map((path) => (
+          <section key={path.title} aria-labelledby={`${path.title}-title`} className="flex flex-col rounded-md border border-line p-6 sm:p-8">
+            <h2 id={`${path.title}-title`} className="font-display text-3xl text-ink">
+              {path.title}
+            </h2>
+            <p className="mt-2 text-sm text-ink-muted">{path.lede}</p>
+            <ol className="mt-6 flex-1 space-y-4">
+              {path.steps.map((step, index) => (
+                <li key={step} className="flex gap-4 text-sm leading-6 text-ink">
+                  <span
+                    aria-hidden
+                    className="grid size-7 shrink-0 place-items-center rounded-full bg-accent/10 text-xs font-semibold text-accent-strong"
+                  >
+                    {index + 1}
+                  </span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <Link href={path.action.href} className={`${buttonClass} mt-8 self-start`}>
+              {path.action.label}
+            </Link>
+          </section>
         ))}
-      </ol>
+      </div>
 
-      <section className="mt-16 grid gap-10 rounded-lg bg-raised p-7 sm:p-10 lg:grid-cols-[0.8fr_1.2fr]">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-highlight">
-            The practical details
-          </p>
-          <h2 className="mt-3 font-display text-3xl tracking-tight text-ink">
-            Simple, clear, and planned properly.
-          </h2>
-        </div>
-        <dl className="divide-y divide-line text-sm">
-          <div className="flex justify-between gap-6 py-4 first:pt-0">
-            <dt className="text-ink-muted">Notice we need</dt>
-            <dd className="font-semibold text-ink">About {business.leadTimeDays} days</dd>
-          </div>
-          <div className="flex justify-between gap-6 py-4">
-            <dt className="text-ink-muted">Event minimum</dt>
-            <dd className="font-semibold text-ink">{business.minimumGuests} people</dd>
-          </div>
-          <div className="flex justify-between gap-6 py-4">
-            <dt className="text-ink-muted">Sandwich minimum</dt>
-            <dd className="font-semibold text-ink">50 sandwiches</dd>
-          </div>
-          <div className="flex justify-between gap-6 py-4">
-            <dt className="text-ink-muted">Dietary needs</dt>
-            <dd className="max-w-xs text-right font-semibold text-ink">Clearly labeled and planned with you</dd>
-          </div>
-        </dl>
+      <section aria-labelledby="details-title" className="mt-16">
+        <h2 id="details-title" className="font-display text-3xl text-ink">
+          The practical details
+        </h2>
+        <FactList
+          className="mt-6"
+          facts={[
+            { label: "Online orders from", value: `${smallestOnlineOrder} people` },
+            { label: "Sandwich platters from", value: `${sandwichMinimum} sandwiches` },
+            { label: "Events from", value: `${minimumEventGuests} guests` },
+            { label: "Notice for events", value: `About ${leadTimeDays} days` },
+          ]}
+        />
+        <p className="mt-6 text-sm text-ink-muted">Delivering to {serviceArea}.</p>
       </section>
 
-      <section className="mt-12 flex flex-col gap-6 rounded-lg bg-accent px-7 py-9 text-on-accent sm:flex-row sm:items-center sm:justify-between sm:px-9">
-        <div>
-          <h2 className="font-display text-2xl">Have a date in mind?</h2>
-          <p className="mt-2 text-sm text-on-accent/75">
-            Choose the food, reserve your date, and we will confirm the details with you.
-          </p>
+      <section aria-labelledby="faq-title" className="mt-16">
+        <h2 id="faq-title" className="font-display text-3xl text-ink">
+          Questions people ask
+        </h2>
+        <div className="mt-6">
+          <Faq />
         </div>
-        <Link
-          href="/shop"
-          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-surface px-5 py-2.5 text-sm font-semibold text-accent-strong shadow-sm transition-transform hover:-translate-y-0.5"
-        >
-          Start an order
-        </Link>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link href="/contact" className={secondaryButtonClass}>
+            Ask us something else
+          </Link>
+        </div>
       </section>
 
-      {isPlaceholderBusiness ? (
-        <p className="mt-10 border-t border-line pt-6 text-xs text-ink-subtle">
-          The business name and contact details are placeholders. Set the final details in
-          lib/business.ts.
-        </p>
-      ) : null}
     </main>
   );
 }

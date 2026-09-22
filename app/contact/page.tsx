@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ContactIcon } from "@/components/icons";
+import { CheckIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui";
 import { business } from "@/lib/business";
+import { phoneHref } from "@/lib/facts";
 import { getCurrentUser } from "@/lib/session";
+import { LIMITS } from "@/lib/validation";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
@@ -10,48 +13,78 @@ export const metadata: Metadata = {
   description: `Contact ${business.name} about catering and events.`,
 };
 
-export default async function ContactPage() {
-  const user = await getCurrentUser();
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ subject?: string | string[] }>;
+}) {
+  const [user, params] = await Promise.all([getCurrentUser(), searchParams]);
+
+  // Other pages link here with ?subject= so the form already says what the
+  // enquiry is about. It only ever becomes an input's default value, which
+  // React escapes, and it is capped to the same length the action accepts.
+  const subject = typeof params.subject === "string" ? params.subject.slice(0, LIMITS.subject) : "";
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-8 sm:py-20">
-      <header className="mb-10 max-w-2xl">
-        <p className="eyebrow">Contact</p>
-        <h1 className="mt-4 font-display text-5xl leading-none tracking-[-0.04em] text-ink sm:text-6xl">Let&apos;s talk.</h1>
-        <p className="mt-5 text-lg text-ink-muted">Questions, custom events, or help with an order.</p>
-      </header>
+    <main className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
+      <PageHeader
+        title="Get in touch"
+        lede="Questions, quotes for events, or help with an order you have placed."
+      />
 
-      <div className="grid overflow-hidden rounded-[2rem] border border-line bg-surface shadow-sm lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="p-6 sm:p-10 lg:p-12" aria-labelledby="contact-form-title">
-          <h2 id="contact-form-title" className="font-display text-2xl text-ink">Send a message</h2>
-          <div className="mt-7">
-            <ContactForm defaults={{ name: user?.name ?? "", email: user?.email ?? "" }} />
-          </div>
+      <div className="grid gap-12 lg:grid-cols-[1.35fr_0.65fr]">
+        <section aria-labelledby="contact-form-title">
+          <h2 id="contact-form-title" className="sr-only">
+            Send us a message
+          </h2>
+          <ContactForm defaults={{ name: user?.name ?? "", email: user?.email ?? "", subject }} />
         </section>
 
-        <aside className="flex flex-col justify-between bg-raised p-7 sm:p-10 lg:p-12">
+        <aside className="space-y-10 text-sm">
           <div>
-            <div className="grid size-12 place-items-center rounded-full bg-surface text-accent shadow-sm">
-              <ContactIcon className="size-5" />
-            </div>
-            <h2 className="mt-8 font-display text-3xl text-ink">Direct contact</h2>
-            <dl className="mt-8 divide-y divide-line border-y border-line text-sm">
-              <div className="py-5">
-                <dt className="text-xs font-bold uppercase tracking-[0.12em] text-ink-subtle">Email</dt>
-                <dd className="mt-2"><a href={`mailto:${business.email}`} className="font-semibold text-ink hover:text-accent">{business.email}</a></dd>
-              </div>
-              <div className="py-5">
-                <dt className="text-xs font-bold uppercase tracking-[0.12em] text-ink-subtle">Phone</dt>
-                <dd className="mt-2"><a href={`tel:${business.phone.replace(/[^\d+]/g, "")}`} className="font-semibold text-ink hover:text-accent">{business.phone}</a></dd>
-              </div>
-              <div className="py-5">
-                <dt className="text-xs font-bold uppercase tracking-[0.12em] text-ink-subtle">Service area</dt>
-                <dd className="mt-2 leading-6 text-ink-muted">{business.serviceArea}</dd>
-              </div>
-            </dl>
+            <h2 className="font-display text-2xl text-ink">Call or email</h2>
+            <ul className="mt-4 space-y-2">
+              <li>
+                <a href={phoneHref} className="font-semibold text-ink underline-offset-4 hover:underline">
+                  {business.phone}
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${business.email}`} className="font-semibold text-ink underline-offset-4 hover:underline">
+                  {business.email}
+                </a>
+              </li>
+            </ul>
+            <p className="mt-4 leading-6 text-ink-muted">Delivering to {business.serviceArea}.</p>
           </div>
-          <p className="mt-10 text-sm text-ink-muted">
-            Ready to order? <Link href="/shop" className="font-semibold text-accent">Open the catalog</Link>
+
+          <div>
+            <h2 className="font-display text-2xl text-ink">Asking for a quote?</h2>
+            <p className="mt-3 leading-6 text-ink-muted">
+              It saves a round of emails if you can include:
+            </p>
+            <ul className="mt-3 space-y-2 text-ink">
+              {[
+                "The date and roughly what time",
+                "How many guests",
+                "Where it is",
+                "Allergies and dietary needs",
+                "A budget, if you have one in mind",
+              ].map((item) => (
+                <li key={item} className="flex gap-2.5">
+                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-accent" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="border-t border-line pt-6 leading-6 text-ink-muted">
+            Just need lunch?{" "}
+            <Link href="/shop" className="font-semibold text-accent underline-offset-4 hover:underline">
+              Order online
+            </Link>{" "}
+            in a few minutes.
           </p>
         </aside>
       </div>

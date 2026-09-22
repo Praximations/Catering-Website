@@ -121,6 +121,45 @@ describe("house conventions", () => {
     assert.deepEqual(offenders, [], `text() needs a maximum:\n${offenders.join("\n")}`);
   });
 
+  it("uses the design tokens, never an arbitrary hex colour in a class", async () => {
+    // AGENTS.md: the palette lives in app/globals.css. A hex in a class name is
+    // a colour the palette does not know about, and the first thing to look
+    // wrong when the palette changes. app/global-error.tsx is exempt because it
+    // styles inline on purpose: it renders when the stylesheet itself failed.
+    const offenders: string[] = [];
+    for (const file of await sourceFiles()) {
+      if (![".tsx"].includes(extname(file))) continue;
+      const contents = await readFile(file, "utf8");
+      contents.split("\n").forEach((line, index) => {
+        if (/[a-z]+-\[#[0-9a-fA-F]{3,8}\]/.test(line)) {
+          offenders.push(`${relative(ROOT, file)}:${index + 1}: ${line.trim().slice(0, 80)}`);
+        }
+      });
+    }
+    assert.deepEqual(offenders, [], `Use a token from app/globals.css:\n${offenders.join("\n")}`);
+  });
+
+  it("keeps template labels and one-off radii off the public pages", async () => {
+    // The tracked all-caps label above every heading, and a bespoke radius on
+    // every card, were most of what made the site read as a template. Public
+    // pages use the rounded-sm/md/lg tokens and a plain heading. The owner's
+    // screens under app/admin keep a quiet context label, which is useful there.
+    const offenders: string[] = [];
+    for (const file of await sourceFiles()) {
+      if (extname(file) !== ".tsx") continue;
+      const path = relative(ROOT, file);
+      if (path.startsWith("app/admin") || path.endsWith("loading.tsx") || path === "components/ui.tsx") {
+        continue;
+      }
+      const contents = await readFile(file, "utf8");
+      contents.split("\n").forEach((line, index) => {
+        if (/className="eyebrow/.test(line)) offenders.push(`${path}:${index + 1}: eyebrow label`);
+        if (/rounded-\[[^\]]+\]/.test(line)) offenders.push(`${path}:${index + 1}: arbitrary radius`);
+      });
+    }
+    assert.deepEqual(offenders, [], offenders.join("\n"));
+  });
+
   it("keeps the old single-document store from coming back", async () => {
     // lib/store.ts held the whole database in one object, read and rewritten on
     // every change. Note that lib/db/store.ts is the NEW contract and a

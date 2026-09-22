@@ -13,10 +13,13 @@ export function CheckoutForm({
   minDate,
   defaults,
   total,
+  onlinePayment,
 }: {
   minDate: string;
   defaults: { name: string; email: string };
   total: string;
+  /** Whether a payment provider is configured, so the copy does not promise one. */
+  onlinePayment: boolean;
 }) {
   // A successful checkout never comes back here: the action redirects to
   // the confirmation page. Anything in state is a problem to show.
@@ -67,7 +70,7 @@ export function CheckoutForm({
           />
         </Field>
 
-        <Field label="Date you need it" htmlFor="eventDate" error={errors.eventDate}>
+        <Field label="Delivery date" htmlFor="eventDate" error={errors.eventDate}>
           <input
             id="eventDate"
             name="eventDate"
@@ -79,7 +82,7 @@ export function CheckoutForm({
         </Field>
 
         <Field
-          label="How many people"
+          label="Number of guests"
           htmlFor="guests"
           error={errors.guests}
         >
@@ -94,7 +97,7 @@ export function CheckoutForm({
         </Field>
       </div>
 
-      <Field label="Where should we bring it" htmlFor="address" error={errors.address}>
+      <Field label="Delivery address" htmlFor="address" error={errors.address}>
         <input
           id="address"
           name="address"
@@ -106,16 +109,21 @@ export function CheckoutForm({
       </Field>
 
       <Field
-        label="Order notes"
+        label="Allergies, timing and delivery notes"
         htmlFor="notes"
-        hint="Add allergies, timing, or delivery instructions."
+        hint="Optional. For example: two guests are gluten free, deliver by 11:45, loading bay at the back."
       >
         <textarea id="notes" name="notes" rows={4} maxLength={2000} className={inputClass} />
       </Field>
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-line pt-6">
+      <div className="border-t border-line pt-6">
         <SubmitButton pendingLabel="Placing order...">Place order, {total}</SubmitButton>
-        <p className="text-xs text-ink-subtle">Payment options appear after the order is saved.</p>
+        {/* Said before the click, not after: the most common hesitation at
+            this point is "am I about to be charged". */}
+        <p className="mt-4 max-w-md text-sm leading-6 text-ink-muted">
+          Nothing is charged yet. We check the date and confirm your order with you first
+          {onlinePayment ? ", then you can pay securely from your order page." : ", then arrange payment with you."}
+        </p>
       </div>
     </form>
   );

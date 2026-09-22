@@ -4,11 +4,14 @@
  * with concise original wording for this brand.
  */
 
+import type { DietaryTag } from "./dietary";
+
 export interface MenuItem {
   name: string;
   description: string;
   price?: string;
-  tags?: string[];
+  /** Typed, so a misspelled label is a compile error rather than a silent blank. */
+  tags?: DietaryTag[];
 }
 
 export interface MenuPackage {

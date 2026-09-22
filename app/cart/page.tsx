@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Alert, EmptyState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import { belowMinimum, getCart } from "@/lib/cart";
 import { formatMoney, quantityInputLabel, quantityLabel, unitLabel } from "@/lib/shop";
+import { isPaymentConfigured } from "@/lib/payments";
 import { getCurrentUser } from "@/lib/session";
 import { CheckoutForm } from "./checkout-form";
 
@@ -25,12 +26,12 @@ export default async function CartPage() {
 
   if (cart.lines.length === 0) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-6">
-        <PageHeader eyebrow="Order" title="Your cart" />
-        <EmptyState title="Your cart is empty.">
-          <p>Choose something from the catalog to get started.</p>
+      <main className="mx-auto w-full max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
+        <PageHeader title="Your order" />
+        <EmptyState title="Your order is empty.">
+          <p>Choose what you need from the online menu and it will appear here.</p>
           <Link href="/shop" className={`${buttonClass} mt-5`}>
-            Open catalog
+            Order online
           </Link>
         </EmptyState>
       </main>
@@ -38,21 +39,20 @@ export default async function CartPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-6 sm:py-16">
+    <main className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
       <PageHeader
-        eyebrow="Checkout"
-        title="Finish your order."
-        lede="Review your selections and add the delivery details."
+        title="Check out"
+        lede="Check your order, then tell us when and where you need it."
       />
 
-      <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
-        <section aria-labelledby="order-summary-title" className="rounded-[1.5rem] border border-line bg-surface p-5 shadow-sm sm:p-7">
+      <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+        <section aria-labelledby="order-summary-title" className="rounded-md border border-line bg-surface p-5 sm:p-7 lg:sticky lg:top-24">
           <div className="flex items-center justify-between border-b border-line pb-4">
             <h2 id="order-summary-title" className="font-display text-2xl text-ink">
-              Order summary
+              Your order
             </h2>
-            <Link href="/shop" className="text-sm font-semibold text-accent-strong hover:text-accent">
-              Back to catalog
+            <Link href="/shop" className="text-sm font-semibold text-accent underline-offset-4 hover:underline">
+              Add more
             </Link>
           </div>
 
@@ -94,7 +94,7 @@ export default async function CartPage() {
                     </div>
                     <SubmitButton
                       pendingLabel="Saving..."
-                      className="min-h-11 rounded-md px-3 text-sm font-semibold text-accent-strong hover:bg-raised"
+                      className="min-h-11 rounded-sm px-3 text-sm font-semibold text-accent hover:bg-raised"
                     >
                       Update
                     </SubmitButton>
@@ -126,22 +126,17 @@ export default async function CartPage() {
 
           <div className="flex items-end justify-between border-t border-line pt-5">
             <div>
-              <p className="font-semibold text-ink">Estimated subtotal</p>
-              <p className="mt-1 text-xs text-ink-subtle">Before tax and confirmed travel.</p>
+              <p className="font-semibold text-ink">Subtotal</p>
+              <p className="mt-1 text-xs text-ink-subtle">Before tax and delivery, confirmed with you.</p>
             </div>
-            <p className="font-display text-2xl text-ink">{formatMoney(cart.subtotalMinor)}</p>
+            <p className="text-2xl font-semibold text-ink">{formatMoney(cart.subtotalMinor)}</p>
           </div>
         </section>
 
-        <section aria-labelledby="delivery-title" className="rounded-[1.5rem] bg-raised/70 p-5 sm:p-8">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-highlight">
-              Delivery details
-            </p>
-            <h2 id="delivery-title" className="mt-2 font-display text-3xl tracking-tight text-ink">
-              Where and when
-            </h2>
-          </div>
+        <section aria-labelledby="delivery-title">
+          <h2 id="delivery-title" className="font-display text-3xl tracking-tight text-ink">
+            Delivery details
+          </h2>
 
           {short.length > 0 ? (
             <div className="mt-6">
@@ -154,11 +149,12 @@ export default async function CartPage() {
             </div>
           ) : null}
 
-          <div className="mt-7">
+          <div className="mt-6">
             <CheckoutForm
               minDate={minDate}
               defaults={{ name: user?.name ?? "", email: user?.email ?? "" }}
               total={formatMoney(cart.subtotalMinor)}
+              onlinePayment={isPaymentConfigured}
             />
           </div>
         </section>
