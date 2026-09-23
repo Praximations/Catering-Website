@@ -33,6 +33,7 @@ function forCustomer(enquiry: EnquiryRecord): CustomerEnquiry {
     guests: enquiry.guests,
     packageSlug: enquiry.packageSlug,
     notes: enquiry.notes,
+    address: enquiry.address,
     status: enquiry.status,
     createdAt: enquiry.createdAt,
     updatedAt: enquiry.updatedAt,
@@ -48,6 +49,7 @@ export async function createEnquiry(input: {
   guests: number;
   packageSlug: string;
   notes: string;
+  address: string;
 }): Promise<CustomerEnquiry> {
   const now = new Date().toISOString();
   const created = await db.enquiries.insert({
@@ -60,6 +62,7 @@ export async function createEnquiry(input: {
     guests: input.guests,
     packageSlug: input.packageSlug,
     notes: input.notes.trim(),
+    address: input.address.trim(),
     status: "new",
     ownerNotes: "",
     createdAt: now,

@@ -115,9 +115,17 @@ function sameKey(a: Row, b: Row, fields: readonly string[]): boolean {
   return fields.every((field) => a[field] === b[field]);
 }
 
-/** The constraint a row would violate, or null. */
+/**
+ * The constraint a row would violate, or null.
+ *
+ * A null never collides, which is Postgres's rule: NULLs are distinct in a
+ * unique constraint, so a column that is unique WHEN SET (a provider's message
+ * id, say) can hold any number of rows that have none. Treating null as equal
+ * to null here would refuse the second row Postgres happily accepts.
+ */
 function violates(rows: Row[], spec: TableSpec, candidate: Row): readonly string[] | null {
   for (const fields of [spec.primaryKey, ...(spec.unique ?? [])]) {
+    if (fields.some((field) => candidate[field] === null || candidate[field] === undefined)) continue;
     if (rows.some((row) => sameKey(row, candidate, fields))) return fields;
   }
   return null;

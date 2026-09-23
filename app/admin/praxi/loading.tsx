@@ -1,5 +1,5 @@
 import { SkeletonPage } from "@/components/ui";
 
 export default function Loading() {
-  return <SkeletonPage eyebrow="Praxi" rows={3} />;
+  return <SkeletonPage label="Assistant" rows={3} />;
 }

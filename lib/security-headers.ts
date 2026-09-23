@@ -17,6 +17,11 @@ export interface CspOptions {
    * lib/payments, and the note on the form-action directive below.
    */
   checkoutOrigins?: readonly string[];
+  /**
+   * Origins the page may show in an iframe. Only the map, and only when maps
+   * are on; see MAP_EMBED_ORIGIN in lib/geo.ts. Empty means frame nothing.
+   */
+  frameOrigins?: readonly string[];
 }
 
 /**
@@ -47,7 +52,7 @@ export interface CspOptions {
  * An injected script runs as the site.
  */
 export function contentSecurityPolicy(options: CspOptions): string {
-  const { nonce, development = false, supabaseUrl, checkoutOrigins = [] } = options;
+  const { nonce, development = false, supabaseUrl, checkoutOrigins = [], frameOrigins = [] } = options;
 
   const policy: [string, string[]][] = [
     ["default-src", ["'self'"]],
@@ -88,9 +93,11 @@ export function contentSecurityPolicy(options: CspOptions): string {
       ],
     ],
 
-    // Stripe Checkout is a full redirect, not an iframe, so nothing here needs
-    // to be framed and nothing needs to frame it.
-    ["frame-src", ["'none'"]],
+    // Checkout is a full redirect, not an iframe. The one thing a page frames
+    // is the map, from exactly one origin, and only while maps are on. A map
+    // iframe is sandboxed from this origin by the same-origin policy, and it
+    // renders tiles, nothing that can reach into the page.
+    ["frame-src", frameOrigins.length > 0 ? [...frameOrigins] : ["'none'"]],
     ["object-src", ["'none'"]],
     // The modern X-Frame-Options. Unlike that header it cannot be confused by
     // more than one value.

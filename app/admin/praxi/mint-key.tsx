@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { mintKeyAction, type KeyState } from "@/app/actions/praxi";
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Alert, button, inputClass } from "@/components/ui";
 
 /**
  * Minting a control key. The token comes back exactly once, so the copy
@@ -30,7 +30,7 @@ export function MintKey() {
             className={inputClass}
           />
         </div>
-        <SubmitButton pendingLabel="Creating..." className={secondaryButtonClass}>
+        <SubmitButton pendingLabel="Creating" className={button("secondary")}>
           Create a key
         </SubmitButton>
       </form>
@@ -44,7 +44,7 @@ export function MintKey() {
       {state?.token ? (
         <div className="mt-4">
           <Alert tone="success" title="Copy this now. It will not be shown again.">
-            <code className="mt-2 block break-all rounded-sm border border-line bg-page px-3 py-2 font-mono text-xs text-ink">
+            <code className="mt-2 block break-all rounded-md border border-line bg-page px-3 py-2 font-mono text-xs text-ink">
               {state.token}
             </code>
             <p className="mt-3">

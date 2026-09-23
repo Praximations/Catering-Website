@@ -27,29 +27,23 @@ import {
  * catalog on the server, and that priced cart is what becomes the order.
  */
 
-/** Only ever describes a FAILURE: success leaves by redirecting. */
+/**
+ * Only ever describes a FAILURE: success leaves by redirecting.
+ *
+ * `values` is what they typed, handed back so the form can show it again.
+ * React resets a form after its action runs, so without this every refusal
+ * (a date in the past, a missing phone) wiped the whole form.
+ */
 export interface CheckoutState {
   error?: string;
   fieldErrors?: Record<string, string>;
+  values?: Record<string, string>;
 }
 
 export async function checkoutAction(
   _prevState: CheckoutState | undefined,
   formData: FormData
 ): Promise<CheckoutState> {
-  const cart = await getCart();
-  if (cart.lines.length === 0) {
-    return { error: "Your cart is empty." };
-  }
-
-  const short = belowMinimum(cart);
-  if (short.length > 0) {
-    const first = short[0]!;
-    return {
-      error: `${first.product.name} has a minimum of ${first.product.minQuantity}. Adjust it in the cart and try again.`,
-    };
-  }
-
   const name = text(formData, "name", LIMITS.name);
   const email = text(formData, "email", LIMITS.email);
   const phone = text(formData, "phone", LIMITS.phone);
@@ -57,6 +51,29 @@ export async function checkoutAction(
   const address = text(formData, "address", LIMITS.address);
   const notes = text(formData, "notes", LIMITS.notes);
   const guests = integer(formData, "guests");
+  const values = {
+    name,
+    email,
+    phone,
+    eventDate,
+    address,
+    notes,
+    guests: text(formData, "guests", 10),
+  };
+
+  const cart = await getCart();
+  if (cart.lines.length === 0) {
+    return { error: "Your cart is empty.", values };
+  }
+
+  const short = belowMinimum(cart);
+  if (short.length > 0) {
+    const first = short[0]!;
+    return {
+      error: `${first.product.name} has a minimum of ${first.product.minQuantity}. Adjust it in your order and try again.`,
+      values,
+    };
+  }
 
   const problems = new Problems();
   problems.when(name.length < 2, "name", "Please tell us your name.");
@@ -89,7 +106,7 @@ export async function checkoutAction(
 
   // `guests === null` is already reported above; repeating it here is what
   // narrows the type without a cast the compiler would simply believe.
-  if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors };
+  if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors, values };
 
   // Checkout writes an order every time it succeeds, so this is as much about
   // keeping the owner's dashboard usable as it is about abuse.
@@ -100,6 +117,7 @@ export async function checkoutAction(
   if (!limit.allowed) {
     return {
       error: "That is a lot of orders in a short time. Please call us so we can help directly.",
+      values,
     };
   }
 
@@ -132,9 +150,14 @@ export async function checkoutAction(
   // order went through. The confirmation is its own page, addressed by
   // the order's unguessable token so a guest can reach their own and
   // nobody else's. Outside any try/catch, because redirect throws.
-  redirect(`/orders/${order.token}`);
+  redirect(`/orders/${order.token}?placed=1`);
 }
 
+/**
+ * The owner moving an order along, or keeping private notes on it. Either
+ * field may come alone: the status buttons send only a status, the notes form
+ * only notes.
+ */
 export async function updateOrderAction(formData: FormData): Promise<void> {
   // Checked here as well as on the page: a Server Action is a public
   // endpoint and can be called without the dashboard ever being loaded.
@@ -142,19 +165,20 @@ export async function updateOrderAction(formData: FormData): Promise<void> {
   if (!user || user.role !== "owner") return;
 
   const id = text(formData, "id", LIMITS.id);
-  const status = choice(formData, "status", ORDER_STATUSES);
-  if (!id || !status) return;
-
+  const status = choice(formData, "status", ORDER_STATUSES) ?? undefined;
   const ownerNotes = formData.has("ownerNotes")
     ? text(formData, "ownerNotes", LIMITS.notes)
     : undefined;
+  if (!id || (status === undefined && ownerNotes === undefined)) return;
 
   const updated = await updateOrder(id, {
-    status,
+    ...(status === undefined ? {} : { status }),
     ...(ownerNotes === undefined ? {} : { ownerNotes }),
   });
-  if (updated) await praxiOrderUpdated(updated);
+  // Praxi hears about status changes; a private note is nobody else's business.
+  if (updated && status !== undefined) await praxiOrderUpdated(updated);
 
-  revalidatePath("/admin");
-  revalidatePath("/account");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/account", "layout");
+  if (updated) revalidatePath(`/orders/${updated.token}`);
 }

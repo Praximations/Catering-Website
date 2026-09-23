@@ -1,97 +1,382 @@
 @import "tailwindcss";
 
-/** The whole visual system lives here so every page stays consistent. */
+/*
+ * THE DESIGN SYSTEM, in one file.
+ *
+ * Every colour, radius, shadow and timing the site uses is a token here, handed
+ * to Tailwind through @theme so that `bg-surface`, `rounded-xl`, `shadow-md`
+ * and `ease-soft` exist as utilities. A page never names a hex value, a pixel
+ * radius, or a bezier curve; changing the look means changing this file.
+ */
 
 :root {
-  /* Crisp white surfaces with one quiet, botanical supporting tint. */
-  --color-page: #ffffff;
+  /* Surfaces. A soft warm canvas with white cards on it: separation comes
+     from the surface change and a hairline, not from heavy borders. */
+  --color-page: #f5f5f1;
   --color-surface: #ffffff;
-  --color-raised: #f6f5ef;
+  --color-raised: #f0f0ea;
+  --color-sunken: #e8e8e1;
 
-  --color-ink: #172019;
-  --color-ink-muted: #586158;
-  --color-ink-subtle: #83897f;
+  --color-ink: #141a15;
+  --color-ink-muted: #59625a;
+  --color-ink-subtle: #8b918a;
 
-  /* Herb green handles actions. Warm tomato is reserved for food details. */
-  --color-accent: #3d5b3f;
-  --color-accent-strong: #263d2a;
+  --color-line: #e6e6df;
+  --color-line-strong: #d4d6cc;
+
+  /* Botanical green for actions. Warm terracotta only for food details. */
+  --color-accent: #2f5a3a;
+  --color-accent-strong: #1f3f28;
+  --color-accent-soft: #e7efe8;
   --color-on-accent: #ffffff;
-  --color-highlight: #b86b3f;
-  --color-highlight-soft: #fff4ed;
+  --color-highlight: #b85c30;
+  --color-highlight-soft: #fcefe7;
 
-  --color-line: #e2e3dc;
+  /* Status tones. Each has a soft fill for pills and panels. */
+  --color-warning: #8f5b08;
+  --color-warning-soft: #fcf3e1;
+  --color-danger: #b0372a;
+  --color-danger-soft: #fdeeec;
+  --color-info: #365a80;
+  --color-info-soft: #eaf1f8;
 
-  /* Tighter than a typical app kit on purpose. Large, pillowy radii read as
-     a software product; a caterer's site should feel closer to print. */
-  --radius-sm: 0.375rem;
-  --radius: 0.625rem;
-  --radius-lg: 1rem;
+  /* Motion. Short, and decelerating: things arrive and settle. The spring
+     overshoots a hair and is only for small things like icons and checks. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 380ms;
+
+  /* Lets <details> animate to its natural height. Browsers without it simply
+     open instantly, which is the right fallback. */
+  interpolate-size: allow-keywords;
 }
 
-/* Hand the tokens to Tailwind so `bg-page`, `text-ink-muted`, and
-   `border-line` exist as utilities rather than arbitrary values. */
 @theme inline {
   --color-page: var(--color-page);
   --color-surface: var(--color-surface);
   --color-raised: var(--color-raised);
+  --color-sunken: var(--color-sunken);
   --color-ink: var(--color-ink);
   --color-ink-muted: var(--color-ink-muted);
   --color-ink-subtle: var(--color-ink-subtle);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
   --color-accent: var(--color-accent);
   --color-accent-strong: var(--color-accent-strong);
+  --color-accent-soft: var(--color-accent-soft);
   --color-on-accent: var(--color-on-accent);
   --color-highlight: var(--color-highlight);
   --color-highlight-soft: var(--color-highlight-soft);
-  --color-line: var(--color-line);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+
   --font-sans: var(--font-sans-stack);
   --font-display: var(--font-display-stack);
 
-  /* Radii, same trick: the values live in :root above, these lines are
-     what turn them into rounded-sm, rounded-md, and rounded-lg. */
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius);
-  --radius-lg: var(--radius-lg);
+  --ease-soft: var(--ease-out-soft);
+  --ease-spring: var(--ease-spring);
 }
 
-html {
-  scroll-behavior: smooth;
+@theme {
+  /* The radius scale. Inputs and chips at md, cards at lg and xl, the navbar
+     and footer at 2xl, buttons as pills. Nothing uses a one-off radius. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+
+  /* Soft, layered, tinted by the ink colour rather than pure black. */
+  --shadow-xs: 0 1px 2px rgb(20 26 21 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(20 26 21 / 0.04), 0 2px 8px -2px rgb(20 26 21 / 0.06);
+  --shadow-md: 0 2px 4px -1px rgb(20 26 21 / 0.04), 0 10px 28px -8px rgb(20 26 21 / 0.12);
+  --shadow-lg: 0 4px 10px -2px rgb(20 26 21 / 0.05), 0 24px 56px -16px rgb(20 26 21 / 0.22);
+
+  --animate-fade-in: fade-in 220ms var(--ease-out-soft) both;
+  --animate-fade-up: fade-up 420ms var(--ease-out-soft) both;
+  --animate-scale-in: scale-in 200ms var(--ease-out-soft) both;
+  --animate-pop: pop 460ms var(--ease-spring) both;
+  --animate-ping-soft: ping-soft 2.2s var(--ease-out-soft) infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
 }
 
-body {
-  background: var(--color-page);
-  color: var(--color-ink);
-  text-rendering: optimizeLegibility;
+/* -------------------------------- keyframes -------------------------------- */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+}
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; }
+}
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.55; }
+  80%, 100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes draw {
+  from { stroke-dashoffset: var(--draw-length, 40); }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes icon-hop {
+  40% { transform: translateY(-3px) scale(1.06); }
+}
+@keyframes icon-tilt {
+  35% { transform: rotate(-12deg) scale(1.06); }
+  70% { transform: rotate(6deg); }
+}
+@keyframes icon-wiggle {
+  25% { transform: rotate(-9deg); }
+  50% { transform: rotate(7deg); }
+  75% { transform: rotate(-3deg); }
+}
+@keyframes icon-spin {
+  to { transform: rotate(90deg); }
+}
+@keyframes grow-x {
+  from { transform: scaleX(0); }
 }
 
-/* A quiet context label for the owner's screens, where knowing which
-   dashboard you are on is useful. Public pages do not use it: a tracked
-   all-caps label above every heading is the single most recognisable tell of
-   a template, and it says nothing a heading does not. */
-.eyebrow {
-  color: var(--color-ink-subtle);
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
+/* ---------------------------------- base ----------------------------------- */
 
-/* Section anchors land below the sticky header rather than under it. */
-[id] {
-  scroll-margin-top: 6rem;
-}
+/*
+ * In a layer so a utility can override it. Unlayered, this outline beat
+ * Tailwind's outline-none and every field showed it on top of its own ring.
+ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
 
-::selection {
-  background: var(--color-highlight-soft);
-  color: var(--color-ink);
+  body {
+    background: var(--color-page);
+    color: var(--color-ink);
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss03";
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
 }
 
 a,
 button,
 input,
 select,
-textarea {
+textarea,
+summary {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Respect the setting rather than animating over it. */
+/* Anchors land below the floating navbar rather than under it. */
+[id] {
+  scroll-margin-top: 7rem;
+}
+
+/* A quiet context label for the Owner Portal, where knowing which screen you
+   are on helps. Public pages do not use it. */
+.eyebrow {
+  color: var(--color-ink-subtle);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* ------------------------------ nav icon motion ---------------------------- */
+
+/*
+ * Each navigation icon moves a little, in its own way, when its link is
+ * hovered or pressed. A colour change alone reads as a default browser link;
+ * a two hundred millisecond nudge reads as something that was designed. The
+ * motion is on the icon only, never on the text, so nothing reflows.
+ */
+.nav-icon {
+  transform-origin: 50% 60%;
+}
+.group:hover .nav-icon[data-motion="hop"],
+.group:focus-visible .nav-icon[data-motion="hop"] {
+  animation: icon-hop 420ms var(--ease-spring);
+}
+.group:hover .nav-icon[data-motion="tilt"],
+.group:focus-visible .nav-icon[data-motion="tilt"] {
+  animation: icon-tilt 520ms var(--ease-spring);
+}
+.group:hover .nav-icon[data-motion="wiggle"],
+.group:focus-visible .nav-icon[data-motion="wiggle"] {
+  animation: icon-wiggle 520ms var(--ease-out-soft);
+}
+.group:hover .nav-icon[data-motion="spin"],
+.group:focus-visible .nav-icon[data-motion="spin"] {
+  animation: icon-spin 480ms var(--ease-spring);
+}
+.group:active .nav-icon {
+  transform: scale(0.88);
+  transition: transform 80ms;
+}
+
+/* ----------------------------- scroll reveals ------------------------------ */
+
+/*
+ * Content fades up as it enters the viewport. components/motion.tsx only
+ * hides elements that START below the fold, so nothing already on screen
+ * flickers, and without JavaScript nothing is ever hidden at all.
+ */
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+[data-reveal="in"] {
+  transition:
+    opacity 520ms var(--ease-out-soft),
+    transform 620ms var(--ease-out-soft);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* ------------------------------ disclosures -------------------------------- */
+
+/* <details> opens to its natural height instead of snapping. */
+details.disclosure::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  transition:
+    block-size var(--duration-base) var(--ease-out-soft),
+    content-visibility var(--duration-base) allow-discrete;
+}
+details.disclosure[open]::details-content {
+  block-size: auto;
+}
+details.disclosure > summary {
+  list-style: none;
+}
+details.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+details.disclosure[open] > summary .disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+/* --------------------------- dialogs and sheets ---------------------------- */
+
+/*
+ * Native <dialog>, animated in and out with @starting-style. The dialog gives
+ * focus trapping, Escape to close, and the top layer for free; this gives it
+ * motion. Browsers without @starting-style open it without a transition.
+ */
+dialog.sheet {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  transition:
+    opacity var(--duration-base) var(--ease-out-soft),
+    transform var(--duration-slow) var(--ease-out-soft),
+    overlay var(--duration-slow) allow-discrete,
+    display var(--duration-slow) allow-discrete;
+}
+dialog.sheet[open] {
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  dialog.sheet[open] {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+dialog.sheet::backdrop {
+  background: rgb(20 26 21 / 0);
+  transition:
+    background var(--duration-slow) var(--ease-out-soft),
+    overlay var(--duration-slow) allow-discrete,
+    display var(--duration-slow) allow-discrete;
+}
+dialog.sheet[open]::backdrop {
+  background: rgb(20 26 21 / 0.32);
+}
+@starting-style {
+  dialog.sheet[open]::backdrop {
+    background: rgb(20 26 21 / 0);
+  }
+}
+
+/* ------------------------------ page transitions --------------------------- */
+
+/*
+ * React's <ViewTransition>, wired in app/(site)/template.tsx, cross fades the
+ * page on navigation. The navbar opts out by name so it stays put as the one
+ * fixed reference while content changes under it.
+ */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.page) {
+  animation: 140ms var(--ease-out-soft) both fade-out-page;
+}
+::view-transition-new(.page) {
+  animation: 260ms var(--ease-out-soft) 60ms both fade-up;
+}
+@keyframes fade-out-page {
+  to { opacity: 0; }
+}
+::view-transition-group(site-nav),
+::view-transition-group(portal-nav) {
+  animation: none;
+  z-index: 50;
+}
+::view-transition-old(site-nav),
+::view-transition-old(portal-nav) {
+  display: none;
+}
+::view-transition-new(site-nav),
+::view-transition-new(portal-nav) {
+  animation: none;
+}
+/* The active-link pill slides between links rather than blinking. */
+::view-transition-group(.nav-pill) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease-out-soft);
+}
+
+/* A printed menu or order has no viewport to scroll into, so nothing waits. */
+@media print {
+  [data-reveal="pending"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------ reduced motion ----------------------------- */
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -100,6 +385,17 @@ textarea {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  [data-reveal="pending"] {
+    opacity: 1;
+    transform: none;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

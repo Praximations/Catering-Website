@@ -40,6 +40,36 @@ export const business = {
   leadTimeDays: 14,
   /** Smallest booking you take. Shown honestly rather than discovered later. */
   minimumGuests: 20,
+  /**
+   * Where the kitchen is, for the map on the contact page and the Owner
+   * Portal. Null until it is real: a map pin on a made-up address would be
+   * worse than no map. Latitude and longitude from any map site.
+   */
+  location: null as { label: string; lat: number; lon: number } | null,
+  /**
+   * ISO 3166 country codes that addresses are looked up in, lower case,
+   * comma separated. Keeps "Springfield" from resolving to the wrong one.
+   */
+  countryCodes: "us",
+  /**
+   * THE BUSINESS'S OWN POLICIES, which the policy pages and FAQ state ONLY once
+   * they are set here. Null means "not decided yet", and the pages say that we
+   * confirm it with each customer, rather than inventing a promise.
+   */
+  policies: {
+    /** Shown as "Last updated" on every policy page. ISO date, or blank. */
+    lastUpdated: "",
+    /** How many hours before delivery an order can be cancelled for a full refund. */
+    cancellationNoticeHours: null as number | null,
+    /** Within how many days an approved refund is sent back. */
+    refundDays: null as number | null,
+    /** One sentence on what delivery costs, e.g. "Free within 10 miles". */
+    deliveryFee: null as string | null,
+    /** The latest you can change head count, in hours before delivery. */
+    changeNoticeHours: null as number | null,
+    /** The jurisdiction whose law governs the terms, e.g. "the State of Oregon". */
+    governingLaw: null as string | null,
+  },
 } as const;
 
 /**

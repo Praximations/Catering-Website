@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PlusIcon } from "@/components/icons";
 import { business } from "@/lib/business";
 import { isPaymentConfigured } from "@/lib/payments";
 import {
@@ -78,8 +79,8 @@ export const QUESTIONS: Question[] = [
     q: "Can I change my order after placing it?",
     a: (
       <>
-        Yes. If you have an account, send a change request from your account page and it goes
-        straight to us with the order attached. Otherwise call us on{" "}
+        Yes. Message us from your order page, which has the order attached, or from your account.
+        For anything on the day, call us on{" "}
         <a href={phoneHref} className="font-semibold text-ink underline underline-offset-4">
           {business.phone}
         </a>
@@ -103,19 +104,19 @@ export const QUESTIONS: Question[] = [
 
 export function Faq({ questions = QUESTIONS }: { questions?: Question[] }) {
   return (
-    <div className="divide-y divide-line border-y border-line">
+    <div className="divide-y divide-line rounded-xl border border-line bg-surface shadow-xs">
       {questions.map((item) => (
-        <details key={item.q} className="group py-1">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-4 text-left font-medium text-ink marker:hidden [&::-webkit-details-marker]:hidden">
+        <details key={item.q} className="disclosure group">
+          <summary className="flex cursor-pointer items-center justify-between gap-6 px-5 py-4 text-left font-medium text-ink transition-colors hover:text-accent-strong">
             {item.q}
             <span
               aria-hidden
-              className="grid size-6 shrink-0 place-items-center rounded-full border border-line text-ink-muted transition-transform group-open:rotate-45"
+              className="grid size-7 shrink-0 place-items-center rounded-full bg-raised text-ink-muted transition-transform duration-300 ease-spring group-open:rotate-45"
             >
-              +
+              <PlusIcon className="size-3.5" />
             </span>
           </summary>
-          <div className="max-w-2xl pb-5 text-sm leading-6 text-ink-muted">{item.a}</div>
+          <div className="max-w-2xl px-5 pb-5 text-sm leading-6 text-ink-muted">{item.a}</div>
         </details>
       ))}
     </div>

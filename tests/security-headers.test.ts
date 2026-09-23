@@ -52,6 +52,16 @@ describe("contentSecurityPolicy", () => {
     );
   });
 
+  it("frames nothing by default, and only the named map origin when given one", () => {
+    assert.deepEqual(production["frame-src"], ["'none'"]);
+    const withMap = parse(
+      contentSecurityPolicy({ nonce: NONCE, frameOrigins: ["https://www.openstreetmap.org"] })
+    );
+    assert.deepEqual(withMap["frame-src"], ["https://www.openstreetmap.org"]);
+    // Framing a map is not the same as being framed: that stays refused.
+    assert.deepEqual(withMap["frame-ancestors"], ["'none'"]);
+  });
+
   it("keeps unsafe-eval out of production and allows it in development", () => {
     // React uses eval in development to rebuild server stack traces.
     assert.equal(production["script-src"]!.includes("'unsafe-eval'"), false);

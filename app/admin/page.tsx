@@ -1,418 +1,248 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { updateEnquiryAction } from "@/app/actions/enquiries";
-import { replyCustomerMessageAction } from "@/app/actions/account";
-import { updateContactStatusAction } from "@/app/actions/contacts";
-import { updateOrderAction } from "@/app/actions/orders";
-import { StatusBadge, formatEventDate, formatSentAt, packageLabel } from "@/components/enquiry";
-import { OrderLines, OrderStatusBadge, PaymentBadge } from "@/components/order";
-import { SubmitButton } from "@/components/submit-button";
-import { EmptyState, PageHeader, inputClass, secondaryButtonClass } from "@/components/ui";
-import { CONTACT_STATUSES, CONTACT_STATUS_LABELS, contactCounts, listContacts } from "@/lib/contacts";
+import { daysUntil, formatWhen, relativeDay } from "@/components/enquiry";
+import {
+  AlertIcon,
+  ArrowRightIcon,
+  CalendarIcon,
+  ChatIcon,
+  CheckCircleIcon,
+  CreditCardIcon,
+  InboxIcon,
+  KeyIcon,
+  MailIcon,
+  ReceiptIcon,
+  SlidersIcon,
+  SparklesIcon,
+  TruckIcon,
+  UsersIcon,
+  type Icon,
+} from "@/components/icons";
+import { AttentionItem, DateTile, ListRow } from "@/components/owner";
+import { OrderStatusBadge, PaymentBadge } from "@/components/order";
+import { cardClass, cx, EmptyState, nudgeClass, PageHeader, reveal, Section, Stat, textLinkClass } from "@/components/ui";
+import { isPlaceholderBusiness } from "@/lib/business";
+import { contactCounts, listContacts } from "@/lib/contacts";
+import { listApprovals } from "@/lib/control";
 import { listCustomers } from "@/lib/customers";
-import { listAllCustomerMessages } from "@/lib/customer-messages";
-import { ENQUIRY_STATUSES, STATUS_LABELS, enquiryCounts, listAllEnquiries } from "@/lib/enquiries";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS, listAllOrders, orderCounts } from "@/lib/orders";
+import { enquiryCounts, listAllEnquiries } from "@/lib/enquiries";
+import { listConversations } from "@/lib/messages";
+import { listAllOrders, orderCounts } from "@/lib/orders";
+import { isPaymentConfigured } from "@/lib/payments";
 import { requireOwner } from "@/lib/session";
 import { formatMoney } from "@/lib/shop";
+import { activeSmsProvider } from "@/lib/sms";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  // Signed in only, and nothing here is for a search engine. robots.ts says so
-  // too; this is the copy a crawler sees on the page itself.
-  robots: { index: false, follow: false },
+  title: "Overview",
 };
 
 /**
- * The owner's dashboard: every order and every enquiry, with the controls
- * to move each one along.
- *
- * requireOwner runs here, and each action checks the role AGAIN on its
- * own, because a Server Action is a public endpoint that can be called
- * without this page ever being loaded.
+ * The owner's first screen. It answers, in order: is anything waiting on me,
+ * what is coming up, and how is the business doing. Detail lives one click
+ * away on each section's own page.
  */
-export default async function AdminPage() {
+export default async function OwnerOverview() {
   const owner = await requireOwner();
-  const [orders, orderStats, enquiries, enquiryStats, contacts, contactStats, customers, customerMessages] = await Promise.all([
-    listAllOrders(),
-    orderCounts(),
-    listAllEnquiries(),
-    enquiryCounts(),
-    listContacts(),
-    contactCounts(),
-    listCustomers(),
-    listAllCustomerMessages(),
-  ]);
+  const [orders, stats, quotes, quoteStats, contacts, contactStats, conversations, customers, approvals] =
+    await Promise.all([
+      listAllOrders(),
+      orderCounts(),
+      listAllEnquiries(),
+      enquiryCounts(),
+      listContacts(),
+      contactCounts(),
+      listConversations(),
+      listCustomers(),
+      listApprovals("pending", 100),
+    ]);
+
+  const upcoming = orders
+    .filter((order) => (order.status === "pending" || order.status === "confirmed") && daysUntil(order.eventDate) >= 0)
+    .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  const thisWeek = upcoming.filter((order) => daysUntil(order.eventDate) <= 7);
+  const unpaidSoon = thisWeek.filter((order) => order.paymentStatus === "unpaid");
+  const unread = conversations.reduce((sum, conversation) => sum + conversation.unread, 0);
+  const unreadThreads = conversations.filter((conversation) => conversation.unread > 0);
+
+  /* What is waiting on the owner, most urgent first. Only real items. */
+  const attention: { href: string; icon: Icon; label: string; detail?: string; count?: number; tone?: "warning" | "danger" | "info" | "highlight" | "neutral" }[] = [];
+  if (stats.pending > 0) {
+    attention.push({ href: "/admin/orders?status=pending", icon: ReceiptIcon, label: "Orders to confirm", count: stats.pending, tone: "warning" });
+  }
+  if (unread > 0) {
+    attention.push({
+      href: "/admin/inbox",
+      icon: ChatIcon,
+      label: "Unread messages",
+      detail: unreadThreads.slice(0, 3).map((c) => c.name).join(", "),
+      count: unread,
+      tone: "highlight",
+    });
+  }
+  if (quoteStats.new > 0) {
+    attention.push({ href: "/admin/quotes?status=new", icon: SparklesIcon, label: "New quote requests", count: quoteStats.new, tone: "warning" });
+  }
+  if (contactStats.new > 0) {
+    attention.push({ href: "/admin/inbox?tab=contact", icon: MailIcon, label: "New contact messages", count: contactStats.new, tone: "info" });
+  }
+  if (unpaidSoon.length > 0) {
+    attention.push({
+      href: "/admin/orders?status=unpaid",
+      icon: CreditCardIcon,
+      label: "Unpaid, delivering this week",
+      detail: unpaidSoon.slice(0, 3).map((o) => `#${o.reference}`).join(", "),
+      count: unpaidSoon.length,
+      tone: "danger",
+    });
+  }
+  if (approvals.length > 0) {
+    attention.push({ href: "/admin/praxi", icon: KeyIcon, label: "Assistant requests waiting", count: approvals.length, tone: "info" });
+  }
+
+  const setup: { href: string; label: string }[] = [];
+  if (isPlaceholderBusiness) setup.push({ href: "/admin/settings#business", label: "Replace the placeholder business details" });
+  if (!isPaymentConfigured) setup.push({ href: "/admin/settings#integrations", label: "Connect online payments" });
+  if (!activeSmsProvider()) setup.push({ href: "/admin/settings#integrations", label: "Connect text messaging" });
+
+  /* The last few things that happened, newest first. */
+  const activity = [
+    ...orders.slice(0, 6).map((order) => ({
+      at: order.createdAt,
+      icon: ReceiptIcon,
+      text: `${order.name} placed order ${order.reference}`,
+      href: `/admin/orders/${order.id}`,
+    })),
+    ...quotes.slice(0, 6).map((quote) => ({
+      at: quote.createdAt,
+      icon: SparklesIcon,
+      text: `${quote.name} asked for a quote, ${quote.guests} guests`,
+      href: `/admin/quotes?open=${quote.id}`,
+    })),
+    ...conversations.slice(0, 6).map((conversation) => ({
+      at: conversation.lastAt,
+      icon: ChatIcon,
+      text: `${conversation.lastSender === "customer" ? conversation.name : "You"}: ${conversation.lastBody}`,
+      href: `/admin/inbox?c=${conversation.key}`,
+    })),
+    ...contacts.slice(0, 6).map((contact) => ({
+      at: contact.createdAt,
+      icon: MailIcon,
+      text: `${contact.name}: ${contact.subject}`,
+      href: "/admin/inbox?tab=contact",
+    })),
+  ]
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 7);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-16">
+    <div className="space-y-8">
       <PageHeader
-        eyebrow={`Signed in as ${owner.email}`}
-        title="Dashboard"
-        lede="Orders, customers, and messages."
+        eyebrow={new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}
+        title={`Welcome back, ${owner.name.split(" ")[0]}`}
       />
 
-      {/* Real numbers, including real zeros. Nothing here is a sample. */}
-      <dl className="mb-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-line bg-surface px-5 py-4">
-          <dt className="text-xs uppercase tracking-wide text-ink-subtle">Orders</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{orderStats.total}</dd>
-        </div>
-        <div className="rounded-xl border border-line bg-surface px-5 py-4">
-          <dt className="text-xs uppercase tracking-wide text-ink-subtle">Booked value</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">
-            {formatMoney(orderStats.revenueMinor)}
-          </dd>
-        </div>
-        <div className="rounded-xl border border-line bg-surface px-5 py-4">
-          <dt className="text-xs uppercase tracking-wide text-ink-subtle">Customers</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{customers.length}</dd>
-        </div>
-        <div className="rounded-xl border border-line bg-surface px-5 py-4">
-          <dt className="text-xs uppercase tracking-wide text-ink-subtle">New messages</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{contactStats.new + enquiryStats.new}</dd>
-        </div>
-      </dl>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="space-y-8">
+          <Section title="Needs attention">
+            {attention.length > 0 ? (
+              <ul className={cx(cardClass, "divide-y divide-line overflow-hidden")} {...reveal()}>
+                {attention.map((item) => (
+                  <AttentionItem key={item.label} {...item} />
+                ))}
+              </ul>
+            ) : (
+              <div className={cx(cardClass, "flex items-center gap-3 p-5")}>
+                <span className="grid size-9 place-items-center rounded-full bg-accent-soft text-accent">
+                  <CheckCircleIcon className="size-5" />
+                </span>
+                <p className="text-sm text-ink">All clear. Nothing is waiting on you.</p>
+              </div>
+            )}
+          </Section>
 
-      <section className="mb-16">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">CRM</p>
-            <h2 className="mt-2 font-display text-3xl text-ink">Customers</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="This week" value={thisWeek.length} hint="Deliveries in 7 days" icon={TruckIcon} href="/admin/orders?status=confirmed" />
+            <Stat label="Booked value" value={formatMoney(stats.revenueMinor)} hint="Excludes cancelled and refunded" icon={ReceiptIcon} />
+            <Stat label="Customers" value={customers.length} icon={UsersIcon} href="/admin/customers" />
+            <Stat label="Open quotes" value={quoteStats.new + quoteStats.contacted} icon={SparklesIcon} href="/admin/quotes" />
           </div>
-          <Link href="/admin/praxi" className="text-xs font-semibold text-ink-subtle hover:text-ink">Automation settings</Link>
+
+          <Section
+            title="Coming up"
+            action={
+              <Link href="/admin/orders" className={textLinkClass}>
+                All orders <ArrowRightIcon className={nudgeClass} />
+              </Link>
+            }
+          >
+            {upcoming.length === 0 ? (
+              <EmptyState icon={CalendarIcon} title="Nothing booked ahead" className="bg-surface">
+                Orders appear here as they come in.
+              </EmptyState>
+            ) : (
+              <ul className={cx(cardClass, "divide-y divide-line overflow-hidden")}>
+                {upcoming.slice(0, 6).map((order) => (
+                  <ListRow
+                    key={order.id}
+                    href={`/admin/orders/${order.id}`}
+                    leading={<DateTile iso={order.eventDate} />}
+                    title={
+                      <>
+                        {order.name} <span className="font-normal text-ink-subtle">· {relativeDay(order.eventDate)}</span>
+                      </>
+                    }
+                    subtitle={`${order.guests} guests · ${order.address}`}
+                    meta={formatMoney(order.subtotalMinor, order.currency)}
+                    trailing={
+                      <>
+                        <OrderStatusBadge status={order.status} />
+                        {order.paymentStatus !== "unpaid" ? <PaymentBadge status={order.paymentStatus} /> : null}
+                      </>
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </Section>
         </div>
-        {customers.length === 0 ? (
-          <div className="mt-6"><EmptyState title="No customer data yet." /></div>
-        ) : (
-          <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
-            {customers.map((customer, index) => (
-              <article key={customer.email} className={`grid gap-4 p-5 sm:grid-cols-[1.2fr_1fr_auto] sm:items-center ${index > 0 ? "border-t border-line" : ""}`}>
-                <div>
-                  <p className="font-semibold text-ink">{customer.name || "Customer"}</p>
-                  <a href={`mailto:${customer.email}`} className="mt-1 block text-sm text-ink-muted hover:text-accent">{customer.email}</a>
-                  {customer.phone ? <a href={`tel:${customer.phone.replace(/[^\d+]/g, "")}`} className="mt-1 block text-xs text-ink-subtle">{customer.phone}</a> : null}
-                </div>
-                <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted">
-                  <span>{customer.orders} orders</span>
-                  <span>{customer.enquiries} enquiries</span>
-                  <span>{customer.messages} messages</span>
-                </div>
-                <div className="sm:text-right">
-                  <p className="font-display text-xl text-ink">{formatMoney(customer.lifetimeValueMinor)}</p>
-                  <p className="text-xs text-ink-subtle">{customer.hasAccount ? "Account" : "Guest"}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
 
-      <section className="mb-16">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">Customer portal</p>
-            <h2 className="mt-2 font-display text-3xl text-ink">Conversations</h2>
-          </div>
-          <span className="text-sm text-ink-subtle">{customerMessages.length} messages</span>
+        <div className="space-y-8">
+          <Section title="Recent activity">
+            {activity.length === 0 ? (
+              <EmptyState icon={InboxIcon} title="No activity yet" className="bg-surface" />
+            ) : (
+              <ol className={cx(cardClass, "divide-y divide-line overflow-hidden")}>
+                {activity.map((item, index) => (
+                  <li key={`${item.href}-${index}`}>
+                    <Link href={item.href} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-raised/60">
+                      <item.icon className="mt-0.5 size-4 shrink-0 text-ink-subtle" />
+                      <span className="min-w-0 flex-1 truncate text-sm text-ink">{item.text}</span>
+                      <span className="shrink-0 text-xs text-ink-subtle">{formatWhen(item.at)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Section>
+
+          {setup.length > 0 ? (
+            <Section title="Finish setting up">
+              <ul className={cx(cardClass, "divide-y divide-line overflow-hidden")}>
+                {setup.map((item) => (
+                  <li key={item.label}>
+                    <Link href={item.href} className="group flex items-center gap-3 px-4 py-3 text-sm text-ink transition-colors hover:bg-raised/60">
+                      <AlertIcon className="size-4 shrink-0 text-warning" />
+                      <span className="flex-1">{item.label}</span>
+                      <SlidersIcon className="size-4 text-ink-subtle" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
         </div>
-        {customerMessages.length === 0 ? (
-          <div className="mt-6"><EmptyState title="No portal messages yet." /></div>
-        ) : (
-          <ul className="mt-6 grid gap-4 md:grid-cols-2">
-            {customerMessages.map((message) => (
-              <li key={message.id} className={`rounded-2xl border p-5 ${message.sender === "customer" ? "border-highlight/25 bg-highlight-soft/40" : "border-line bg-surface"}`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-ink">{message.sender === "customer" ? message.customerName : "Catering coordinator"}</p>
-                    <p className="mt-1 text-xs text-ink-subtle">{message.customerEmail}{message.orderReference ? ` / Order ${message.orderReference}` : ""}</p>
-                  </div>
-                  <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-muted">{message.kind === "change_request" ? "Change request" : "Message"}</span>
-                </div>
-                <p className="mt-4 text-sm leading-6 text-ink-muted">{message.body}</p>
-                {message.sender === "customer" ? (
-                  <form action={replyCustomerMessageAction} className="mt-5 border-t border-line pt-4">
-                    <input type="hidden" name="userId" value={message.userId} />
-                    <input type="hidden" name="orderId" value={message.orderId ?? ""} />
-                    <textarea name="body" rows={3} required maxLength={2000} placeholder="Reply to this customer..." className={inputClass} />
-                    <SubmitButton pendingLabel="Sending..." className={`${secondaryButtonClass} mt-3`}>Send reply</SubmitButton>
-                  </form>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mb-16">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">Inbox</p>
-            <h2 className="mt-2 font-display text-3xl text-ink">Contact messages</h2>
-          </div>
-          <span className="text-sm text-ink-subtle">{contactStats.total} total</span>
-        </div>
-        {contacts.length === 0 ? (
-          <div className="mt-6"><EmptyState title="No contact messages yet." /></div>
-        ) : (
-          <ul className="mt-6 grid gap-4 md:grid-cols-2">
-            {contacts.map((contact) => (
-              <li key={contact.id} className="rounded-2xl border border-line bg-surface p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-display text-xl text-ink">{contact.subject}</h3>
-                    <p className="mt-1 text-sm text-ink-muted">{contact.name} · {contact.email}</p>
-                  </div>
-                  <span className="rounded-full bg-raised px-2.5 py-1 text-xs font-semibold text-ink-muted">{CONTACT_STATUS_LABELS[contact.status]}</span>
-                </div>
-                <p className="mt-4 text-sm leading-6 text-ink-muted">{contact.message}</p>
-                <form action={updateContactStatusAction} className="mt-5 flex items-center gap-2 border-t border-line pt-4">
-                  <input type="hidden" name="id" value={contact.id} />
-                  <select name="status" defaultValue={contact.status} className={`${inputClass} py-2`}>
-                    {CONTACT_STATUSES.map((status) => <option key={status} value={status}>{CONTACT_STATUS_LABELS[status]}</option>)}
-                  </select>
-                  <SubmitButton pendingLabel="Saving..." className={secondaryButtonClass}>Save</SubmitButton>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mb-16">
-        <h2 className="font-display text-2xl tracking-tight text-ink">Orders</h2>
-
-        {orders.length === 0 ? (
-          <div className="mt-6">
-            <EmptyState title="No orders yet.">
-              <p>
-                Anything placed through{" "}
-                <Link href="/shop" className="text-accent-strong hover:underline">
-                  the order page
-                </Link>{" "}
-                lands here.
-              </p>
-            </EmptyState>
-          </div>
-        ) : (
-          <ul className="mt-6 space-y-5">
-            {orders.map((order) => (
-              <li key={order.id} className="rounded-lg border border-line bg-surface p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-display text-lg text-ink">
-                      Order {order.reference} &middot; {formatEventDate(order.eventDate)}
-                    </p>
-                    <p className="mt-1 text-sm text-ink-muted">
-                      {order.guests} {order.guests === 1 ? "person" : "people"} &middot;{" "}
-                      {formatMoney(order.subtotalMinor, order.currency)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <PaymentBadge status={order.paymentStatus} />
-                    <OrderStatusBadge status={order.status} />
-                  </div>
-                </div>
-
-                <OrderLines lines={order.lines} currency={order.currency} />
-
-                <div className="mt-4 grid gap-x-6 gap-y-1 border-t border-line pt-4 text-sm sm:grid-cols-2">
-                  <p className="text-ink">
-                    {order.name}
-                    {order.userId ? (
-                      <span className="ml-2 text-xs text-ink-subtle">has an account</span>
-                    ) : null}
-                  </p>
-                  <p>
-                    <a href={`mailto:${order.email}`} className="text-accent-strong hover:underline">
-                      {order.email}
-                    </a>
-                  </p>
-                  <p>
-                    <a
-                      href={`tel:${order.phone.replace(/[^\d+]/g, "")}`}
-                      className="text-ink-muted hover:text-ink"
-                    >
-                      {order.phone}
-                    </a>
-                  </p>
-                  <p className="text-ink-subtle">Placed {formatSentAt(order.createdAt)}</p>
-                  <p className="text-ink-muted sm:col-span-2">Deliver to {order.address}</p>
-                </div>
-
-                {order.notes ? (
-                  <p className="mt-4 rounded-md bg-raised px-4 py-3 text-sm leading-relaxed text-ink-muted">
-                    {order.notes}
-                  </p>
-                ) : null}
-
-                <form action={updateOrderAction} className="mt-5 flex flex-wrap items-end gap-3">
-                  <input type="hidden" name="id" value={order.id} />
-
-                  <div className="flex flex-col gap-1.5">
-                    <label
-                      htmlFor={`order-status-${order.id}`}
-                      className="text-xs font-medium text-ink-muted"
-                    >
-                      Status
-                    </label>
-                    <select
-                      id={`order-status-${order.id}`}
-                      name="status"
-                      defaultValue={order.status}
-                      className={`${inputClass} w-auto`}
-                    >
-                      {ORDER_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                          {ORDER_STATUS_LABELS[status]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex min-w-56 flex-1 flex-col gap-1.5">
-                    <label
-                      htmlFor={`order-notes-${order.id}`}
-                      className="text-xs font-medium text-ink-muted"
-                    >
-                      Your notes, private
-                    </label>
-                    <input
-                      id={`order-notes-${order.id}`}
-                      name="ownerNotes"
-                      type="text"
-                      defaultValue={order.ownerNotes}
-                      placeholder="Invoiced, waiting on the deposit"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <SubmitButton pendingLabel="Saving..." className={secondaryButtonClass}>
-                    Save
-                  </SubmitButton>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <h2 className="font-display text-2xl tracking-tight text-ink">Enquiries</h2>
-
-        {enquiries.length === 0 ? (
-          <div className="mt-6">
-            <EmptyState title="No enquiries yet.">
-              <p>
-                When somebody sends the form on{" "}
-                <Link href="/quote" className="text-accent-strong hover:underline">
-                  the quote page
-                </Link>
-                , it lands here.
-              </p>
-            </EmptyState>
-          </div>
-        ) : (
-          <ul className="mt-6 space-y-5">
-            {enquiries.map((enquiry) => (
-              <li key={enquiry.id} className="rounded-lg border border-line bg-surface p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-display text-lg text-ink">
-                      {formatEventDate(enquiry.eventDate)}
-                    </p>
-                    <p className="mt-1 text-sm text-ink-muted">
-                      {enquiry.guests} {enquiry.guests === 1 ? "guest" : "guests"},{" "}
-                      {packageLabel(enquiry.packageSlug)}
-                    </p>
-                  </div>
-                  <StatusBadge status={enquiry.status} />
-                </div>
-
-                <div className="mt-4 grid gap-x-6 gap-y-1 border-t border-line pt-4 text-sm sm:grid-cols-2">
-                  <p className="text-ink">
-                    {enquiry.name}
-                    {enquiry.userId ? (
-                      <span className="ml-2 text-xs text-ink-subtle">has an account</span>
-                    ) : null}
-                  </p>
-                  <p>
-                    <a
-                      href={`mailto:${enquiry.email}`}
-                      className="text-accent-strong hover:underline"
-                    >
-                      {enquiry.email}
-                    </a>
-                  </p>
-                  {enquiry.phone ? (
-                    <p>
-                      <a
-                        href={`tel:${enquiry.phone.replace(/[^\d+]/g, "")}`}
-                        className="text-ink-muted hover:text-ink"
-                      >
-                        {enquiry.phone}
-                      </a>
-                    </p>
-                  ) : null}
-                  <p className="text-ink-subtle">Sent {formatSentAt(enquiry.createdAt)}</p>
-                </div>
-
-                {enquiry.notes ? (
-                  <p className="mt-4 rounded-md bg-raised px-4 py-3 text-sm leading-relaxed text-ink-muted">
-                    {enquiry.notes}
-                  </p>
-                ) : null}
-
-                <form action={updateEnquiryAction} className="mt-5 flex flex-wrap items-end gap-3">
-                  <input type="hidden" name="id" value={enquiry.id} />
-
-                  <div className="flex flex-col gap-1.5">
-                    <label
-                      htmlFor={`status-${enquiry.id}`}
-                      className="text-xs font-medium text-ink-muted"
-                    >
-                      Status
-                    </label>
-                    <select
-                      id={`status-${enquiry.id}`}
-                      name="status"
-                      defaultValue={enquiry.status}
-                      className={`${inputClass} w-auto`}
-                    >
-                      {ENQUIRY_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                          {STATUS_LABELS[status]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex min-w-56 flex-1 flex-col gap-1.5">
-                    <label
-                      htmlFor={`notes-${enquiry.id}`}
-                      className="text-xs font-medium text-ink-muted"
-                    >
-                      Your notes, private
-                    </label>
-                    <input
-                      id={`notes-${enquiry.id}`}
-                      name="ownerNotes"
-                      type="text"
-                      defaultValue={enquiry.ownerNotes}
-                      placeholder="Quoted 1,400, waiting to hear back"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <SubmitButton pendingLabel="Saving..." className={secondaryButtonClass}>
-                    Save
-                  </SubmitButton>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

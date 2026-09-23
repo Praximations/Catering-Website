@@ -18,6 +18,7 @@ import {
   MIN_PASSWORD_LENGTH,
   password as readPassword,
   Problems,
+  safeNextPath,
   text,
 } from "@/lib/validation";
 
@@ -36,6 +37,16 @@ import {
 export interface FormState {
   error?: string;
   fieldErrors?: Record<string, string>;
+  /**
+   * What was typed, minus the password, so a refusal never makes somebody
+   * type their email again. A password is never sent back to the page.
+   */
+  values?: { name?: string; email?: string };
+}
+
+/** Where a signed-in person goes: the page that sent them, or their home. */
+function destination(role: "owner" | "customer", formData: FormData): string {
+  return safeNextPath(text(formData, "next", 200)) ?? (role === "owner" ? "/admin" : "/account");
 }
 
 export async function signupAction(
@@ -54,7 +65,8 @@ export async function signupAction(
     "password",
     `Use at least ${MIN_PASSWORD_LENGTH} characters.`
   );
-  if (problems.any) return { fieldErrors: problems.fieldErrors };
+  const values = { name, email };
+  if (problems.any) return { fieldErrors: problems.fieldErrors, values };
 
   // Keyed on the caller rather than the address, because the address is new
   // every time: this limits how many accounts one source can create.
@@ -63,14 +75,14 @@ export async function signupAction(
     SIGNUP_LIMIT
   );
   if (!limit.allowed) {
-    return { error: "Too many accounts created from here. Please try again later." };
+    return { error: "Too many accounts created from here. Please try again later.", values };
   }
 
   const result = await createUser({ name, email, password });
   if (!result.ok) {
     // Sign up is the one place where "this address is taken" has to be
     // said out loud; there is no way to create the account otherwise.
-    return { fieldErrors: { email: "There is already an account with that email." } };
+    return { fieldErrors: { email: "There is already an account with that email. Sign in instead?" }, values };
   }
 
   // Praxi learns about the new customer. It cannot break signup: the
@@ -80,7 +92,7 @@ export async function signupAction(
   await createSession(result.user.id);
   // Outside any try/catch: redirect works by throwing, and catching it
   // would swallow the navigation.
-  redirect(result.user.role === "owner" ? "/admin" : "/account");
+  redirect(destination(result.user.role, formData));
 }
 
 export async function loginAction(
@@ -90,8 +102,9 @@ export async function loginAction(
   const email = text(formData, "email", LIMITS.email);
   const password = readPassword(formData, "password");
 
+  const values = { email };
   if (!email || !password) {
-    return { error: "Enter your email and password." };
+    return { error: "Enter your email and password.", values };
   }
 
   /**
@@ -113,13 +126,13 @@ export async function loginAction(
 
   if (!accountLimit.allowed || !callerLimit.allowed) {
     // Says nothing about whether the address exists.
-    return { error: "Too many sign in attempts. Please wait a few minutes and try again." };
+    return { error: "Too many sign in attempts. Please wait a few minutes and try again.", values };
   }
 
   const user = await authenticate(email, password);
   if (!user) {
     // Deliberately does not say which half was wrong.
-    return { error: "That email and password do not match an account." };
+    return { error: "That email and password do not match an account.", values };
   }
 
   /**
@@ -134,7 +147,7 @@ export async function loginAction(
   await clearRateLimit(perAccount);
 
   await createSession(user.id);
-  redirect(user.role === "owner" ? "/admin" : "/account");
+  redirect(destination(user.role, formData));
 }
 
 export async function logoutAction(): Promise<void> {

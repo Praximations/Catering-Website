@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { MAP_EMBED_ORIGIN, mapsEnabled } from "@/lib/geo";
 import { checkoutOrigins } from "@/lib/payments";
 import { contentSecurityPolicy } from "@/lib/security-headers";
 
@@ -37,6 +38,7 @@ export function proxy(request: NextRequest): NextResponse {
     development: process.env.NODE_ENV !== "production",
     supabaseUrl: process.env.SUPABASE_URL?.replace(/\/$/, ""),
     checkoutOrigins: checkoutOrigins(),
+    frameOrigins: mapsEnabled ? [MAP_EMBED_ORIGIN] : [],
   });
 
   // Next reads the nonce off the REQUEST header and puts it on the script tags
@@ -61,6 +63,6 @@ export const config = {
    * check.
    */
   matcher: [
-    "/((?!_next/static|_next/image|api/stripe/webhook|favicon.ico|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf)$).*)",
+    "/((?!_next/static|_next/image|api/stripe/webhook|api/sms|favicon.ico|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf)$).*)",
   ],
 };

@@ -40,6 +40,14 @@ export const CHECKOUT_LIMIT: RateLimit = { max: 20, windowSeconds: 60 * 60 };
  * runaway loop cannot rewrite the catalog.
  */
 export const PRAXI_CONTROL_LIMIT: RateLimit = { max: 60, windowSeconds: 60 };
+/**
+ * Address lookups for the map. Each one is a request to a shared public
+ * geocoder with a strict fair-use policy, so this is as much about being a
+ * good neighbour as about abuse. Generous for a person typing an address.
+ */
+export const GEOCODE_LIMIT: RateLimit = { max: 40, windowSeconds: 10 * 60 };
+/** Messages sent from an order page, which needs no account to reach. */
+export const MESSAGE_LIMIT: RateLimit = { max: 30, windowSeconds: 60 * 60 };
 
 export interface RateLimitResult {
   allowed: boolean;

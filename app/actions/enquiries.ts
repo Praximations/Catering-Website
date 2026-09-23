@@ -32,6 +32,8 @@ export interface EnquiryFormState {
   ok?: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
+  /** What was typed, so a refusal does not wipe the form. */
+  values?: Record<string, string>;
 }
 
 export async function submitEnquiryAction(
@@ -44,7 +46,18 @@ export async function submitEnquiryAction(
   const eventDate = text(formData, "eventDate", 10);
   const packageSlug = text(formData, "packageSlug", 64);
   const notes = text(formData, "notes", LIMITS.notes);
+  const address = text(formData, "address", LIMITS.address);
   const guests = integer(formData, "guests");
+  const values = {
+    name,
+    email,
+    phone,
+    eventDate,
+    packageSlug,
+    notes,
+    address,
+    guests: text(formData, "guests", 10),
+  };
 
   const problems = new Problems();
   problems.when(name.length < 2, "name", "Please tell us your name.");
@@ -76,7 +89,7 @@ export async function submitEnquiryAction(
 
   // `guests === null` is already reported above; repeating it here is what
   // narrows the type without a cast the compiler would simply believe.
-  if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors };
+  if (problems.any || guests === null) return { fieldErrors: problems.fieldErrors, values };
 
   // Checked AFTER validation, so a genuine person correcting a typo does not
   // spend an attempt on a form that was never going to be accepted.
@@ -87,6 +100,7 @@ export async function submitEnquiryAction(
   if (!limit.allowed) {
     return {
       error: "We have had a lot of enquiries from here. Please try again later, or call us.",
+      values,
     };
   }
 
@@ -104,14 +118,15 @@ export async function submitEnquiryAction(
     guests,
     packageSlug,
     notes,
+    address,
   });
 
   // Praxi sees the lead. Fail soft: the enquiry is already saved.
   await praxiEnquirySubmitted(enquiry);
 
   // So the customer's own page shows it immediately after submitting.
-  revalidatePath("/account");
-  revalidatePath("/admin");
+  revalidatePath("/account", "layout");
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }
 
@@ -122,14 +137,16 @@ export async function updateEnquiryAction(formData: FormData): Promise<void> {
   if (!user || user.role !== "owner") return;
 
   const id = text(formData, "id", LIMITS.id);
-  const status = choice(formData, "status", ENQUIRY_STATUSES);
-  if (!id || !status) return;
-
+  const status = choice(formData, "status", ENQUIRY_STATUSES) ?? undefined;
   const ownerNotes = formData.has("ownerNotes")
     ? text(formData, "ownerNotes", LIMITS.notes)
     : undefined;
+  if (!id || (status === undefined && ownerNotes === undefined)) return;
 
-  await updateEnquiry(id, { status, ...(ownerNotes === undefined ? {} : { ownerNotes }) });
-  revalidatePath("/admin");
-  revalidatePath("/account");
+  await updateEnquiry(id, {
+    ...(status === undefined ? {} : { status }),
+    ...(ownerNotes === undefined ? {} : { ownerNotes }),
+  });
+  revalidatePath("/admin", "layout");
+  revalidatePath("/account", "layout");
 }

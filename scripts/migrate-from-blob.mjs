@@ -250,12 +250,15 @@ function mapAll(blob) {
   }
 
   const customerMessages = (blob.customerMessages ?? [])
-    // user_id is NOT NULL here, so a message whose account is gone cannot be
-    // carried over. Reported below rather than dropped silently.
-    .filter((message) => knownUserIds.has(str(message.userId)))
+    // A message needs an account OR an order to belong to (the table refuses
+    // one with neither), so a message whose account and order are both gone
+    // cannot be carried over. Reported below rather than dropped silently.
+    .filter(
+      (message) => knownUserIds.has(str(message.userId)) || knownOrderIds.has(str(message.orderId))
+    )
     .map((message) => ({
       id: str(message.id) || randomUUID(),
-      user_id: str(message.userId),
+      user_id: knownUserIds.has(str(message.userId)) ? str(message.userId) : null,
       order_id: knownOrderIds.has(str(message.orderId)) ? message.orderId : null,
       sender: message.sender === "owner" ? "owner" : "customer",
       kind: message.kind === "change_request" ? "change_request" : "message",

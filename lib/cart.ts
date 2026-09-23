@@ -122,10 +122,13 @@ async function readStored(): Promise<StoredLine[]> {
   return parse((await cookies()).get(COOKIE)?.value);
 }
 
-export async function addToCart(slug: string, quantity: number): Promise<void> {
+/** What adding did, so the button that asked can say so. */
+export type AddToCartResult = "added" | "unavailable" | "full";
+
+export async function addToCart(slug: string, quantity: number): Promise<AddToCartResult> {
   const product = await getProduct(slug);
   // Off sale means off sale, whichever page still shows a button for it.
-  if (!product || !product.available) return;
+  if (!product || !product.available) return "unavailable";
 
   const wanted = Math.min(Math.max(Math.trunc(quantity), 1), MAX_QUANTITY);
   const stored = await readStored();
@@ -134,10 +137,11 @@ export async function addToCart(slug: string, quantity: number): Promise<void> {
   if (existing) {
     existing.q = Math.min(existing.q + wanted, MAX_QUANTITY);
   } else {
-    if (stored.length >= MAX_LINES) return;
+    if (stored.length >= MAX_LINES) return "full";
     stored.push({ s: slug, q: wanted });
   }
   await writeCart(stored);
+  return "added";
 }
 
 export async function setCartQuantity(slug: string, quantity: number): Promise<void> {

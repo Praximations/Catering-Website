@@ -202,3 +202,23 @@ export class Problems {
     return { ...this.errors };
   }
 }
+
+/* ------------------------------- redirects -------------------------------- */
+
+/**
+ * Where to go after signing in, when a page asked (/login?next=/cart).
+ *
+ * ONLY A PATH ON THIS SITE. Anything else is an open redirect: a link to the
+ * real sign-in page that lands the customer, signed in and trusting, on a
+ * look-alike site. So it must start with one slash, not two (//evil.example
+ * is a full URL to a browser), carry no backslash (which some browsers read
+ * as a slash) and no scheme, and stay short.
+ */
+export function safeNextPath(value: string | null | undefined): string | null {
+  if (!value || value.length > 200) return null;
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
+  if (/[\u0000-\u001f\s]/.test(value)) return null;
+  if (!/^\/[A-Za-z0-9\-._~/?=&%#]*$/.test(value)) return null;
+  return value;
+}
+

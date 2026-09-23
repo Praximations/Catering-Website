@@ -11,6 +11,8 @@ export interface ContactFormState {
   ok?: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
+  /** What was typed, so a refusal does not wipe the form. */
+  values?: Record<string, string>;
 }
 
 export async function submitContactAction(
@@ -22,25 +24,26 @@ export async function submitContactAction(
   const phone = text(formData, "phone", LIMITS.phone);
   const subject = text(formData, "subject", LIMITS.subject);
   const message = text(formData, "message", LIMITS.message);
+  const values = { name, email, phone, subject, message };
 
   const problems = new Problems();
   problems.when(name.length < 2, "name", "Enter your name.");
   problems.when(!isEmail(email), "email", "Enter a valid email.");
   problems.when(subject.length < 3, "subject", "Add a short subject.");
   problems.when(message.length < 10, "message", "Tell us a little more.");
-  if (problems.any) return { fieldErrors: problems.fieldErrors };
+  if (problems.any) return { fieldErrors: problems.fieldErrors, values };
 
   const limit = await checkRateLimit(
     bucketFor("contact", await clientAddress()),
     PUBLIC_FORM_LIMIT
   );
   if (!limit.allowed) {
-    return { error: "We have had a lot of messages from here. Please try again later." };
+    return { error: "We have had a lot of messages from here. Please try again later.", values };
   }
 
   const user = await getCurrentUser();
   await createContact({ userId: user?.id ?? null, name, email, phone, subject, message });
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }
 
@@ -53,5 +56,5 @@ export async function updateContactStatusAction(formData: FormData): Promise<voi
   if (!id || !status) return;
 
   await updateContactStatus(id, status);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }

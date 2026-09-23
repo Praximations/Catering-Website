@@ -46,8 +46,10 @@ export interface EnquiryRecord {
   guests: number;
   /** A menu package slug, or "unsure". */
   packageSlug: string;
-  /** Dietary needs, venue, anything else. Free text, may be empty. */
+  /** Dietary needs, anything else. Free text, may be empty. */
   notes: string;
+  /** Where the event is, when they said. Drives the map in the Owner Portal. */
+  address: string;
   status: EnquiryStatus;
   /** Private to the owner. Never rendered on a customer-facing page. */
   ownerNotes: string;
@@ -70,13 +72,34 @@ export interface ContactRecord {
   updatedAt: string;
 }
 
+export type MessageChannel = "web" | "sms";
+export type MessageSender = "customer" | "owner";
+
+/**
+ * One message in a conversation between a customer and the business.
+ *
+ * A conversation is either an ACCOUNT's (userId set) or, for somebody who
+ * ordered as a guest, one ORDER's (userId null, orderId set). The schema
+ * refuses a message with neither. lib/messages.ts folds a guest order's
+ * messages into the account thread once the same address signs up.
+ */
 export interface CustomerMessageRecord {
   id: string;
-  userId: string;
+  userId: string | null;
   orderId: string | null;
-  sender: "customer" | "owner";
+  sender: MessageSender;
   kind: "message" | "change_request";
   body: string;
+  /** How it travelled. "sms" came in or went out as a text message. */
+  channel: MessageChannel;
+  /** When the OTHER side first saw it. Null while it is unread. */
+  readAt: string | null;
+  /**
+   * The SMS provider's id for the text, when there was one. Unique when set:
+   * a provider that redelivers an inbound text hits the constraint instead of
+   * posting it twice.
+   */
+  externalId: string | null;
   createdAt: string;
 }
 

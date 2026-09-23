@@ -146,6 +146,7 @@ export const TABLES = {
   customerMessages: {
     name: "customer_messages",
     primaryKey: ["id"],
+    unique: [["externalId"]],
     generated: { id: "uuid", createdAt: "now" },
   },
   savedInfo: {

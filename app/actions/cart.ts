@@ -28,6 +28,35 @@ export async function addToCartAction(formData: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
+/** What the add button shows afterwards. `at` makes two adds in a row distinct. */
+export interface AddToCartState {
+  status: "idle" | "added" | "error";
+  message?: string;
+  at?: number;
+}
+
+/**
+ * The same add, for a button that confirms it. Still a plain form post, so it
+ * works before hydration; with JavaScript the button turns into "Added" for a
+ * moment instead of the page simply reloading.
+ */
+export async function addToCartWithFeedbackAction(
+  _previous: AddToCartState,
+  formData: FormData
+): Promise<AddToCartState> {
+  const result = await addToCart(text(formData, "slug", MAX_SLUG), quantity(formData));
+  revalidatePath("/", "layout");
+  if (result === "added") return { status: "added", at: Date.now() };
+  return {
+    status: "error",
+    message:
+      result === "unavailable"
+        ? "That is not available right now."
+        : "Your order is full. Check out or remove something first.",
+    at: Date.now(),
+  };
+}
+
 export async function setQuantityAction(formData: FormData): Promise<void> {
   await setCartQuantity(text(formData, "slug", MAX_SLUG), quantity(formData));
   revalidatePath("/", "layout");

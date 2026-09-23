@@ -36,15 +36,15 @@ export default function GlobalError({
           padding: "2rem",
           textAlign: "center",
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-          color: "#172019",
-          background: "#ffffff",
+          color: "#141a15",
+          background: "#f5f5f1",
         }}
       >
         <div style={{ maxWidth: "32rem" }}>
           <h1 style={{ fontSize: "1.75rem", margin: "0 0 0.75rem", fontWeight: 700 }}>
             The site is having trouble loading.
           </h1>
-          <p style={{ margin: "0 0 1.5rem", lineHeight: 1.6, color: "#586158" }}>
+          <p style={{ margin: "0 0 1.5rem", lineHeight: 1.6, color: "#59625a" }}>
             This is a problem on our side. Reloading usually fixes it.
           </p>
           <button
@@ -55,7 +55,7 @@ export default function GlobalError({
               padding: "0 1.5rem",
               border: 0,
               borderRadius: "0.5rem",
-              background: "#3d5b3f",
+              background: "#2f5a3a",
               color: "#ffffff",
               fontSize: "0.875rem",
               fontWeight: 700,
@@ -65,7 +65,7 @@ export default function GlobalError({
             Reload
           </button>
           {error.digest ? (
-            <p style={{ marginTop: "2rem", fontSize: "0.875rem", color: "#83897f" }}>
+            <p style={{ marginTop: "2rem", fontSize: "0.875rem", color: "#8b918a" }}>
               Reference: <code>{error.digest}</code>
             </p>
           ) : null}

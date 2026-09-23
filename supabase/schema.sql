@@ -80,6 +80,8 @@ create table if not exists public.enquiries (
   guests        integer not null check (guests > 0 and guests <= 5000),
   package_slug  text not null,
   notes         text not null default '',
+  -- The venue, when they gave one. Shown on a map to the owner.
+  address       text not null default '',
   status        text not null default 'new'
                   check (status in ('new', 'contacted', 'confirmed', 'declined')),
   -- Private to the owner. lib/enquiries.ts builds the customer's view field
@@ -88,6 +90,9 @@ create table if not exists public.enquiries (
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+
+-- Added after the first release; a no-op on a database that has it.
+alter table public.enquiries add column if not exists address text not null default '';
 
 create index if not exists enquiries_created_at on public.enquiries (created_at desc);
 create index if not exists enquiries_user_id on public.enquiries (user_id);
@@ -192,21 +197,58 @@ create index if not exists order_lines_slug on public.order_lines (slug);
 
 /* ============================ customer messages ============================ */
 
+-- A conversation is either an account's (user_id set) or, for a guest, one
+-- order's (user_id null, order_id set). Never neither: a message nobody can
+-- reach is a message nobody answers.
 create table if not exists public.customer_messages (
   id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null references public.users(id) on delete cascade,
+  user_id     uuid references public.users(id) on delete cascade,
   order_id    uuid references public.orders(id) on delete set null,
   sender      text not null check (sender in ('customer', 'owner')),
   kind        text not null check (kind in ('message', 'change_request')),
   body        text not null,
-  created_at  timestamptz not null default now()
+  -- How it travelled: typed on the site, or a text message both ways.
+  channel     text not null default 'web' check (channel in ('web', 'sms')),
+  -- When the OTHER side first saw it. Null is what "unread" means.
+  read_at     timestamptz,
+  -- The SMS provider's id. Unique when set, and NULLs are distinct, so the
+  -- insert on it is what makes a redelivered inbound text land once.
+  external_id text,
+  created_at  timestamptz not null default now(),
+  constraint customer_messages_has_thread check (user_id is not null or order_id is not null)
 );
+
+-- The same shape for a database created before messages could belong to a
+-- guest's order, or be read, or arrive by text. Each step is a no-op once
+-- applied, so this file stays safe to run again.
+alter table public.customer_messages alter column user_id drop not null;
+alter table public.customer_messages add column if not exists channel text not null default 'web';
+alter table public.customer_messages add column if not exists read_at timestamptz;
+alter table public.customer_messages add column if not exists external_id text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'customer_messages_channel_check') then
+    alter table public.customer_messages
+      add constraint customer_messages_channel_check check (channel in ('web', 'sms'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'customer_messages_has_thread') then
+    alter table public.customer_messages
+      add constraint customer_messages_has_thread check (user_id is not null or order_id is not null);
+  end if;
+end;
+$$;
 
 create index if not exists customer_messages_user_id
   on public.customer_messages (user_id, created_at);
 create index if not exists customer_messages_created_at
   on public.customer_messages (created_at desc);
 create index if not exists customer_messages_order_id on public.customer_messages (order_id);
+create unique index if not exists customer_messages_external_id
+  on public.customer_messages (external_id);
+-- The unread badge asks this on every page for a signed-in person, so the
+-- rows it counts are indexed on their own.
+create index if not exists customer_messages_unread
+  on public.customer_messages (sender, created_at) where read_at is null;
 
 /* ============================== saved preferences ========================== */
 
