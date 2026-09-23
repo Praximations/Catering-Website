@@ -3,11 +3,16 @@ import { describe, it } from "node:test";
 import {
   encodeComparison,
   encodeWhere,
+  matchesNothing,
   quoteValue,
 } from "@/lib/db/postgrest-filter";
 
 /**
- * These tests are about one thing: a value can never become syntax.
+ * These tests are about two things. A value can never become syntax. And a
+ * value arrives at Postgres as exactly itself, which is the one a unit test
+ * missed for months: every top-level value was quoted, PostgREST kept the
+ * quotes, and production matched no email, parsed no uuid and counted no
+ * rate limit window.
  *
  * PostgREST parses the DECODED query string, so the quoting here has to
  * hold before URL encoding is applied. Each case below is a string that
@@ -52,28 +57,36 @@ describe("quoteValue", () => {
 });
 
 describe("encodeComparison", () => {
-  it("spells null as is.null, not eq.null", () => {
-    assert.equal(encodeComparison({ eq: null }), "is.null");
-    assert.equal(encodeComparison({ neq: null }), "not.is.null");
+  it("spells null as is.null, not eq.null, in either position", () => {
+    for (const position of ["param", "group"] as const) {
+      assert.equal(encodeComparison({ eq: null }, position), "is.null");
+      assert.equal(encodeComparison({ neq: null }, position), "not.is.null");
+    }
   });
 
-  it("encodes the ordering comparisons", () => {
-    assert.equal(encodeComparison({ gt: 5 }), 'gt."5"');
-    assert.equal(encodeComparison({ gte: "2026-01-01" }), 'gte."2026-01-01"');
-    assert.equal(encodeComparison({ lt: 5 }), 'lt."5"');
-    assert.equal(encodeComparison({ lte: 5 }), 'lte."5"');
+  it("writes a top-level value as it is, because PostgREST keeps quotes there", () => {
+    assert.equal(encodeComparison({ eq: "00000000-0000-0000-0000-000000000000" }), "eq.00000000-0000-0000-0000-000000000000");
+    assert.equal(encodeComparison({ neq: "owner" }), "neq.owner");
+    assert.equal(encodeComparison({ gt: 5 }), "gt.5");
+    assert.equal(encodeComparison({ gte: "2026-01-01T00:00:00.000Z" }), "gte.2026-01-01T00:00:00.000Z");
+    assert.equal(encodeComparison({ lt: 5 }), "lt.5");
+    assert.equal(encodeComparison({ lte: 5 }), "lte.5");
   });
 
-  it("encodes IN as a quoted list", () => {
+  it("quotes every value inside a group, where , . ( ) are syntax", () => {
+    assert.equal(encodeComparison({ eq: "a@b.co" }, "group"), 'eq."a@b.co"');
+    assert.equal(encodeComparison({ gte: "2026-01-01" }, "group"), 'gte."2026-01-01"');
+    assert.equal(encodeComparison({ lt: 5 }, "group"), 'lt."5"');
+  });
+
+  it("quotes a list in either position, because a list always reads quotes", () => {
     assert.equal(encodeComparison({ in: ["new", "read"] }), 'in.("new","read")');
+    assert.equal(encodeComparison({ in: ["new", "read"] }, "group"), 'in.("new","read")');
   });
 
-  it("turns an empty IN into something that matches nothing", () => {
-    // in.() is a parse error and in.("") matches the empty string. Neither
-        // is what "none of these" means.
-    const encoded = encodeComparison({ in: [] });
-    assert.ok(!encoded.includes("()"), encoded);
-    assert.ok(!encoded.includes('""'), encoded);
+  it("refuses an empty IN, which has no spelling that means none of these", () => {
+    // in.() is a parse error and in.("") matches the empty string.
+    assert.throws(() => encodeComparison({ in: [] }), /empty IN/);
   });
 
   it("quotes a value inside IN that carries the list separator", () => {
@@ -89,7 +102,7 @@ describe("encodeWhere", () => {
 
   it("converts camelCase keys to the column name", () => {
     const params = encodeWhere<{ userId: string }>({ all: { userId: "u1" } });
-    assert.equal(params.get("user_id"), 'eq."u1"');
+    assert.equal(params.get("user_id"), "eq.u1");
     assert.equal(params.get("userId"), null);
   });
 
@@ -97,11 +110,20 @@ describe("encodeWhere", () => {
     const params = encodeWhere<{ id: string; status: string }>({
       all: { id: "o1", status: "pending" },
     });
-    assert.equal(params.get("id"), 'eq."o1"');
-    assert.equal(params.get("status"), 'eq."pending"');
+    assert.equal(params.get("id"), "eq.o1");
+    assert.equal(params.get("status"), "eq.pending");
   });
 
-  it("builds an or=() group", () => {
+  it("keeps a top-level value that looks like filter syntax as ONE value", () => {
+    // Its own parameter: URLSearchParams escapes & and =, and PostgREST reads
+    // everything after eq. literally, so none of this becomes a second filter.
+    const hostile = 'a@b.co,role.eq.owner&role=eq.owner"(x)';
+    const reparsed = new URLSearchParams(encodeWhere<{ email: string }>({ all: { email: hostile } }).toString());
+    assert.deepEqual([...reparsed.keys()], ["email"]);
+    assert.equal(reparsed.get("email"), `eq.${hostile}`);
+  });
+
+  it("builds an or=() group, quoted", () => {
     const params = encodeWhere<{ userId: string | null; email: string }>({
       any: [{ userId: "u1" }, { email: "a@b.co" }],
     });
@@ -115,7 +137,7 @@ describe("encodeWhere", () => {
     assert.equal(params.get("or"), '(and(a.eq."1",b.eq."2"),c.eq."3")');
   });
 
-  it("quotes inside an OR group as well, which is the easier place to forget", () => {
+  it("quotes inside an OR group, which is where a bare value would become syntax", () => {
     const params = encodeWhere<{ email: string }>({
       any: [{ email: 'x",role.eq."owner' }],
     });
@@ -125,6 +147,28 @@ describe("encodeWhere", () => {
   it("survives a round trip through URL encoding", () => {
     const params = encodeWhere<{ email: string }>({ all: { email: "a,b.c(d)" } });
     const reparsed = new URLSearchParams(params.toString());
-    assert.equal(reparsed.get("email"), 'eq."a,b.c(d)"');
+    assert.equal(reparsed.get("email"), "eq.a,b.c(d)");
+  });
+});
+
+describe("a filter that matches nothing", () => {
+  it("is an AND with an empty IN, or an OR whose every branch has one", () => {
+    assert.equal(matchesNothing<{ id: string }>({ all: { id: { in: [] } } }), true);
+    assert.equal(matchesNothing<{ a: string; b: string }>({ any: [{ a: { in: [] } }, { b: { in: [] } }] }), true);
+    assert.equal(matchesNothing<{ a: string; b: string }>({ any: [{ a: { in: [] } }, { b: "x" }] }), false);
+    assert.equal(matchesNothing<{ id: string }>({ all: { id: { in: ["x"] } } }), false);
+    assert.equal(matchesNothing(undefined), false);
+  });
+
+  it("is refused by encodeWhere rather than sent without its impossible condition", () => {
+    // Dropped from an update or a delete, the condition would widen it.
+    assert.throws(() => encodeWhere<{ id: string; status: string }>({ all: { id: { in: [] }, status: "new" } }), /matches nothing/);
+  });
+
+  it("leaves an impossible OR branch out, which narrows the OR", () => {
+    const params = encodeWhere<{ userId: string; orderId: string }>({
+      any: [{ userId: "u1" }, { orderId: { in: [] } }],
+    });
+    assert.equal(params.get("or"), '(user_id.eq."u1")');
   });
 });

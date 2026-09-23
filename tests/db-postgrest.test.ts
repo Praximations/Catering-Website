@@ -102,7 +102,9 @@ describe("postgrest adapter: reads", () => {
     await store
       .from<{ id: string; userId: string | null }>(TABLES.orders)
       .find({ all: { userId: "u1" } });
-    assert.equal(params().get("user_id"), 'eq."u1"');
+    // Unquoted: PostgREST keeps quotes on a top-level value, and a quoted
+    // uuid is what made /orders/<token> a 500 in production.
+    assert.equal(params().get("user_id"), "eq.u1");
   });
 
   it("asks for one row when finding one", async () => {
@@ -196,8 +198,8 @@ describe("postgrest adapter: writes", () => {
       .update({ all: { id: "o1", paymentStatus: "unpaid" } }, { paymentStatus: "paid" });
 
     assert.equal(last().method, "PATCH");
-    assert.equal(params().get("id"), 'eq."o1"');
-    assert.equal(params().get("payment_status"), 'eq."unpaid"');
+    assert.equal(params().get("id"), "eq.o1");
+    assert.equal(params().get("payment_status"), "eq.unpaid");
     assert.deepEqual(last().body, { payment_status: "paid" });
     assert.equal(changed.length, 1);
   });
@@ -228,8 +230,22 @@ describe("postgrest adapter: writes", () => {
       .remove({ all: { at: { lt: "2026-01-01" } } });
 
     assert.equal(last().method, "DELETE");
-    assert.equal(params().get("at"), 'lt."2026-01-01"');
+    assert.equal(params().get("at"), "lt.2026-01-01");
     assert.equal(removed, 2);
+  });
+});
+
+describe("postgrest adapter: a filter that matches nothing", () => {
+  it("answers without a request, because an empty IN has no PostgREST spelling", async () => {
+    const orders = store.from<{ id: string }>(TABLES.orders);
+    const none = { all: { id: { in: [] as string[] } } };
+
+    assert.deepEqual(await orders.find(none), []);
+    assert.equal(await orders.findOne(none), null);
+    assert.equal(await orders.count(none), 0);
+    assert.deepEqual(await orders.update(none, {}), []);
+    assert.equal(await orders.remove(none), 0);
+    assert.equal(calls.length, 0);
   });
 });
 

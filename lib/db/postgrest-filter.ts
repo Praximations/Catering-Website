@@ -6,19 +6,37 @@ import { toSnake } from "./naming";
  *
  * ITS OWN FILE BECAUSE IT IS THE INJECTION SURFACE. Everything else in
  * lib/db moves objects around; this is the one place application values are
- * spliced into a string a server will parse. PostgREST's filter grammar
- * treats , . : ( ) and " as syntax, so a value carrying any of them could
- * otherwise end the filter early and start another one, which is how
- * `email=eq.a@b.co` becomes `email=eq.a@b.co,role=eq.owner`.
+ * spliced into a string a server will parse.
  *
- * The defence is to double-quote EVERY value, always, and to escape the
- * backslash and the double quote inside it. Always-quoting rather than
- * quoting-when-needed matters: a rule that only fires on suspicious input
- * is a rule with an exception to find.
+ * WHERE A VALUE SITS DECIDES HOW IT IS WRITTEN, because PostgREST reads the
+ * two positions differently:
+ *
+ *   A top-level parameter, `email=eq.<value>`. Everything after the operator
+ *   is the value, taken LITERALLY: PostgREST does not strip quotes here. The
+ *   value is its own query parameter, so URLSearchParams escaping & = and #
+ *   is what keeps it from starting another one, and nothing inside it is
+ *   syntax. So it is sent exactly as it is.
+ *
+ *   Inside a list, `in.(...)`, or a logic group, `or=(...)`. Here , . : ( )
+ *   ARE syntax, and a bare value carrying one could end the filter early and
+ *   start another, which is how `email.eq.a@b.co` becomes
+ *   `email.eq.a@b.co,role.eq.owner`. So EVERY value in these positions is
+ *   double-quoted, always, with the backslash and the quote escaped.
+ *   Always, rather than when it looks necessary: a rule that only fires on
+ *   suspicious input is a rule with an exception to find.
+ *
+ * This file used to quote the top-level values too. PostgREST kept the
+ * quotes as part of them, so in production an email never matched, a uuid
+ * failed to parse, and a timestamp window counted nothing. The tests here
+ * and in db-postgrest.test.ts pin both positions for that reason.
  */
 
+/** Where a comparison is written: its own parameter, or inside or=(...). */
+export type Position = "param" | "group";
+
 /**
- * One value, quoted so PostgREST reads it as a single literal.
+ * One value, quoted so PostgREST reads it as a single literal inside a list
+ * or a logic group.
  *
  * Order matters: backslashes first, or the backslash added in front of a
  * quote would itself be escaped on the second pass.
@@ -30,29 +48,36 @@ export function quoteValue(value: string | number | boolean): string {
 }
 
 /**
- * The right-hand side of one filter, such as `eq."ari@example.com"`.
+ * The right-hand side of one filter: `eq.ari@example.com` as its own
+ * parameter, `eq."ari@example.com"` inside a group.
  *
  * Null is special: PostgREST spells it `is.null`, and `eq.null` would look
  * for the four-character string "null".
+ *
+ * A list is quoted in either position, because a list always reads quotes.
+ * An EMPTY list has no spelling PostgREST accepts that means "none of
+ * these" (`in.()` is a parse error, `in.("")` matches the empty string), so
+ * it never reaches here: see matchesNothing.
  */
-export function encodeComparison(comparison: Comparison): string {
+export function encodeComparison(comparison: Comparison, position: Position = "param"): string {
+  const value = (raw: string | number | boolean) => (position === "group" ? quoteValue(raw) : String(raw));
+
   if ("eq" in comparison) {
-    return comparison.eq === null ? "is.null" : `eq.${quoteValue(comparison.eq)}`;
+    return comparison.eq === null ? "is.null" : `eq.${value(comparison.eq)}`;
   }
   if ("neq" in comparison) {
-    return comparison.neq === null ? "not.is.null" : `neq.${quoteValue(comparison.neq)}`;
+    return comparison.neq === null ? "not.is.null" : `neq.${value(comparison.neq)}`;
   }
   if ("in" in comparison) {
-    // An empty IN would produce `in.()`, which PostgREST rejects. `in.("")`
-    // would be worse: it matches the empty string. Compare the column with
-    // null instead, which no value satisfies, so the result is empty.
-    if (comparison.in.length === 0) return "is.null.not.is.null";
+    if (comparison.in.length === 0) {
+      throw new Error("An empty IN matches nothing and is answered without a request; see matchesNothing.");
+    }
     return `in.(${comparison.in.map(quoteValue).join(",")})`;
   }
-  if ("gt" in comparison) return `gt.${quoteValue(comparison.gt)}`;
-  if ("gte" in comparison) return `gte.${quoteValue(comparison.gte)}`;
-  if ("lt" in comparison) return `lt.${quoteValue(comparison.lt)}`;
-  if ("lte" in comparison) return `lte.${quoteValue(comparison.lte)}`;
+  if ("gt" in comparison) return `gt.${value(comparison.gt)}`;
+  if ("gte" in comparison) return `gte.${value(comparison.gte)}`;
+  if ("lt" in comparison) return `lt.${value(comparison.lt)}`;
+  if ("lte" in comparison) return `lte.${value(comparison.lte)}`;
   throw new Error("Unsupported comparison.");
 }
 
@@ -68,8 +93,29 @@ function conditionEntries<T>(conditions: Conditions<T>): [string, Filter][] {
 /** `column.eq."value"`, the form used inside an or=(...) group. */
 function encodeConditionsForOr<T>(conditions: Conditions<T>): string {
   return conditionEntries(conditions)
-    .map(([column, filter]) => `${toSnake(column)}.${encodeComparison(normalizeFilter(filter))}`)
+    .map(([column, filter]) => `${toSnake(column)}.${encodeComparison(normalizeFilter(filter), "group")}`)
     .join(",");
+}
+
+function isEmptyIn(filter: Filter): boolean {
+  const comparison = normalizeFilter(filter);
+  return "in" in comparison && comparison.in.length === 0;
+}
+
+function hasEmptyIn<T>(conditions: Conditions<T>): boolean {
+  return conditionEntries(conditions).some(([, filter]) => isEmptyIn(filter));
+}
+
+/**
+ * Whether a Where can match no row at all: an AND with an empty IN in it, or
+ * an OR whose every branch has one. The adapter answers these with nothing,
+ * without a request, which is also what the local adapter's matchesWhere()
+ * gives them.
+ */
+export function matchesNothing<T>(where: Where<T> | undefined): boolean {
+  if (!where) return false;
+  if (hasEmptyIn(where.all ?? {})) return true;
+  return Boolean(where.any && where.any.length > 0 && where.any.every((branch) => hasEmptyIn(branch)));
 }
 
 /**
@@ -78,17 +124,27 @@ function encodeConditionsForOr<T>(conditions: Conditions<T>): string {
  * The AND part becomes one parameter per column. The OR part becomes a
  * single `or=(...)`, and the two together are ANDed by PostgREST, which is
  * the same meaning matchesWhere() gives them locally.
+ *
+ * A Where that matches nothing is REFUSED rather than encoded without its
+ * impossible condition: dropped from an update or a delete, that condition
+ * would widen it to rows it was never meant to touch. Check matchesNothing
+ * first. An OR branch that can never be true is simply left out, which
+ * narrows the OR rather than widening it.
  */
 export function encodeWhere<T>(where: Where<T> | undefined): URLSearchParams {
   const params = new URLSearchParams();
   if (!where) return params;
-
-  for (const [column, filter] of conditionEntries(where.all ?? {})) {
-    params.append(toSnake(column), encodeComparison(normalizeFilter(filter)));
+  if (matchesNothing(where)) {
+    throw new Error("This filter matches nothing; the caller answers it without a request.");
   }
 
-  if (where.any && where.any.length > 0) {
-    const clauses = where.any.map((conditions) => {
+  for (const [column, filter] of conditionEntries(where.all ?? {})) {
+    params.append(toSnake(column), encodeComparison(normalizeFilter(filter), "param"));
+  }
+
+  const branches = (where.any ?? []).filter((conditions) => !hasEmptyIn(conditions));
+  if (branches.length > 0) {
+    const clauses = branches.map((conditions) => {
       const encoded = encodeConditionsForOr(conditions);
       // A group of more than one condition is itself an AND, and needs its
       // own parentheses so it is not flattened into the outer OR.

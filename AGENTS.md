@@ -83,10 +83,20 @@ Rules that must not be relaxed:
 - **Callers speak camelCase.** The adapter converts. Do not send both
   spellings to be safe; that once put `eventDate` AND `event_date` on every
   stored order.
-- **`lib/db/postgrest-filter.ts` double-quotes every value, always.** That
+- **`lib/db/postgrest-filter.ts` writes a value by where it sits.** That
   file is the one place an application value is spliced into a string a
-  server parses, and PostgREST treats `, . : ( )` and `"` as syntax. A rule
+  server parses. Inside `in.(...)` and `or=(...)`, where PostgREST treats
+  `, . : ( )` and `"` as syntax, EVERY value is double-quoted, always: a rule
   that only fires on suspicious input is a rule with an exception to find.
+  A top-level parameter (`email=eq.<value>`) is sent as it is, because
+  PostgREST reads it literally and KEEPS any quotes: quoting it once made
+  every production email lookup miss, every uuid fail to parse, and every
+  rate limit count zero, while the JSON adapter and the unit tests passed.
+- **An empty `IN` never goes over the wire.** It has no PostgREST spelling
+  that means "none of these", so the adapter answers a filter that matches
+  nothing (`matchesNothing`) without a request, and `encodeWhere` refuses one
+  rather than dropping its impossible condition, which would widen an update
+  or a delete.
 - The local JSON adapter exists to make the site RUNNABLE, not to be a
   database. It imitates generated columns, `updated_at`, and unique
   constraints. It does not imitate concurrency, and `lib/db/index.ts`
@@ -482,7 +492,8 @@ import the app's modules the way the app does.
 
 What is worth testing here, and why those things:
 
-- The **PostgREST filter encoder**, because it is the injection surface.
+- The **PostgREST filter encoder**, because it is the injection surface, and
+  because the JSON adapter cannot catch a value PostgREST reads differently.
 - The **session cookie format**, because it stands between a forged cookie
   and a signed-in session. This is why `lib/session-token.ts` is separate
   from `lib/session.ts`: the latter imports `next/headers`, which only

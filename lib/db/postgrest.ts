@@ -1,5 +1,5 @@
 import { recordFromRow, rowFromRecord, toSnake } from "./naming";
-import { encodeWhere } from "./postgrest-filter";
+import { encodeWhere, matchesNothing } from "./postgrest-filter";
 import type { FindOptions, Where } from "./query";
 import type { Insert, StatusCountRow, Store, Table, TableSpec } from "./store";
 
@@ -157,11 +157,15 @@ function table<T, Generated extends keyof T = never>(spec: TableSpec): Table<T, 
   };
 
   return {
+    // A filter that can match nothing (an empty IN) has no PostgREST spelling,
+    // so it is answered here, the same way the local adapter answers it.
     async find(where, options) {
+      if (matchesNothing(where)) return [];
       return rows(await request(`${spec.name}?${searchParams(where, options)}`));
     },
 
     async findOne(where) {
+      if (matchesNothing(where)) return null;
       const found = await rows(
         await request(`${spec.name}?${searchParams(where, { limit: 1 })}`)
       );
@@ -169,6 +173,7 @@ function table<T, Generated extends keyof T = never>(spec: TableSpec): Table<T, 
     },
 
     async count(where) {
+      if (matchesNothing(where)) return 0;
       const params = encodeWhere(where);
       // HEAD plus count=exact: Postgres counts, and no rows cross the wire.
       params.set("select", spec.primaryKey.map(toSnake).join(","));
@@ -206,6 +211,7 @@ function table<T, Generated extends keyof T = never>(spec: TableSpec): Table<T, 
     },
 
     async update(where, patch) {
+      if (matchesNothing(where)) return [];
       const params = encodeWhere(where);
       params.set("select", "*");
       const response = await request(`${spec.name}?${params}`, {
@@ -230,6 +236,7 @@ function table<T, Generated extends keyof T = never>(spec: TableSpec): Table<T, 
     },
 
     async remove(where) {
+      if (matchesNothing(where)) return 0;
       const params = encodeWhere(where);
       params.set("select", spec.primaryKey.map(toSnake).join(","));
       const response = await request(`${spec.name}?${params}`, {
