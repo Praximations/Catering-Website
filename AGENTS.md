@@ -29,8 +29,10 @@ module in `lib/` is written against it.
   transpiler. See "Running it".
 - Design tokens live in `app/globals.css` and reach Tailwind through
   `@theme inline`: `bg-page`, `text-ink-muted`, `border-line`,
-  `font-display`, and `rounded-sm/md/lg`. The public palette is white,
-  botanical green, and one warm food accent. Use the tokens, never arbitrary hex.
+  `font-display`, the radius scale `rounded-sm` to `rounded-2xl`, `shadow-xs`
+  to `shadow-lg`, and the motion tokens (`ease-soft`, `ease-spring`,
+  `animate-*`). The public palette is white, botanical green, and one warm
+  food accent. Use the tokens, never arbitrary hex.
 - Business details live in `lib/business.ts`, ONE file, same idea as the
   tokens. No page hard-codes a name, a phone number, a lead time, or a
   currency. The menu is `lib/menu.ts`, the orderable catalog is `lib/shop.ts`.
@@ -128,6 +130,12 @@ never deletes the source.
 - `lib/enquiries.ts` and `lib/orders.ts` build the customer view field by
   field on purpose, so a new private field added to the record cannot reach
   a customer by default. Keep it that way rather than spreading and deleting.
+- **Never make somebody type it twice.** A failed checkout, quote, contact,
+  sign in or sign up hands back what was entered (never a password). The
+  email carries from a failed sign in to sign up through `sessionStorage`
+  (`components/remembered-email.ts`), which is gone when the tab closes.
+- **`?next=` goes through `safeNextPath`**, which accepts only a path on
+  this site. Anything else makes the real sign in page an open redirect.
 
 ## Input, and rate limiting
 
@@ -163,6 +171,10 @@ request-independent headers, and `proxy.ts` sends the CSP.
 - `Referrer-Policy` is `strict-origin-when-cross-origin` because
   `/orders/<token>` is reachable without an account, so that path is a
   credential and a full-path referrer would hand it away.
+- `frame-src` is `'none'` unless maps are on, and then exactly
+  `MAP_EMBED_ORIGIN` from `lib/geo.ts`. Nothing else is ever framed.
+- `proxy.ts` skips the two webhooks, `api/stripe/webhook` and `api/sms`: a
+  provider's POST has no use for a nonce and must reach its handler untouched.
 
 ## The public pages, and how they should read
 
@@ -176,9 +188,10 @@ it cost, how do I book. Rules:
   hover-lift on buttons. `tests/conventions.test.ts` rejects the eyebrow
   label and one-off radii on public pages, and any hex colour in a class.
   The owner's screens under `app/admin` keep a quiet context label.
-- **Radii are the tokens**, `rounded-sm/md/lg`, which are deliberately
-  tight. Buttons are `buttonClass` / `secondaryButtonClass` /
-  `textLinkClass` from `components/ui.tsx`.
+- **Radii come from the scale**: `md` for inputs and chips, `lg` and `xl`
+  for cards, `2xl` for the navbar, footer and sheets, `full` for buttons and
+  pills. Buttons are `button(variant, size)` and `textLinkClass` from
+  `components/ui.tsx`; nothing styles a button by hand.
 - **Headline numbers are derived, never typed.** "From 8 people", "from
   $18.00 a guest" and the sandwich minimum come from `lib/facts.ts`, which
   reads `lib/shop.ts` and `lib/menu.ts`. A price in copy that disagrees with
@@ -191,13 +204,58 @@ it cost, how do I book. Rules:
   window, delivery fee or refund promise until the business sets one. Any
   answer about paying online is conditional on `isPaymentConfigured`.
 - **Never name a payment provider in `app/`.** Use `activeProvider().label`.
-- **The event menus are quoted, not sold online.** `/menu` links to
-  `/contact?subject=...`, never to `/shop`, because the shop does not sell
-  those dishes. The contact page prefills the subject, capped at
-  `LIMITS.subject`.
-- **The phone number is in the header.** People book caterers by phone.
+- **The event menus are quoted, not sold online.** Each package on `/menu`
+  links to `/quote?package=<slug>`, never to `/shop`, because the shop does
+  not sell those dishes. The contact page still prefills `?subject=`, capped
+  at `LIMITS.subject`.
+- **The phone is one tap from the header** at every width. People book
+  caterers by phone.
 - On a phone the food photo comes first on the home page, and `/shop` shows
   a bottom order bar below `xl`, where the basket sidebar is hidden.
+
+## One product: the design system
+
+Every screen, public, account and portal, is assembled from the same parts.
+
+- **`components/ui.tsx` is the kit**: `button()`, cards, `Field`, `Pill`,
+  `Tabs`, `Disclosure`, `Tooltip`, `EmptyState`, `Stat`, `PageHeader`.
+  Icons are `components/icons.tsx`, inline SVG through its `icon()` factory,
+  no icon library. A screen that needs something new adds it to the kit
+  rather than styling one locally.
+- **Status is a pill with an icon**, never colour alone.
+- **Motion is transform and opacity** from the tokens, and `globals.css`
+  turns it off under `prefers-reduced-motion`. Hover is a background, a
+  shadow or an icon moving; a button never lifts.
+- **Scroll reveals hide only what starts below the fold** (`reveal()` plus
+  `RevealOnScroll`), and nothing at all without JavaScript or when printing.
+  Page transitions are React's `<ViewTransition>` in `app/(site)/template.tsx`.
+  Sheets are a native `<dialog>` (`components/dialog.tsx`); expandable
+  detail is a native `<details>` (`Disclosure`).
+- **The first screen of anything is what matters and the action.** Detail
+  goes behind a `Disclosure`, a `Tooltip` or its own page. Say it once: no
+  label that repeats its heading, no second button that does what the first
+  one does.
+- **Three shells, as route groups.** `app/(site)` has the navbar, footer,
+  phone dock and onboarding. `app/(auth)` is sign in and sign up with no
+  footer, because anything leading away from the form is a distraction.
+  `app/admin` is the Owner Portal with its own sidebar, or dock and sheet.
+  The root layout holds only the fonts and the canvas.
+
+Phone rules. Each of these was a real bug, and `npm run smoke` checks the
+width of the page after scrolling it:
+
+- **A responsive grid starts at `grid-cols-1`.** With no base template the
+  implicit column is as wide as its longest line, and one long address made
+  the whole Owner Portal 600px wide on a 390px phone.
+- **Anything absolutely positioned inside a sideways scroller needs a
+  positioned ancestor inside it.** An `sr-only` label in the home carousel
+  escaped the scroller once its card's reveal transform ended, and the phone
+  widened its layout for the rest of the visit. Scrollers and `Pill` are
+  `relative` for this reason.
+- **A shell that is a row on a desktop is a column on a phone**
+  (`flex-col lg:flex-row`), or its compact header becomes a sidebar.
+- **Two floating layers at most.** The dock, plus the basket bar on `/shop`.
+  The signup prompt waits for a page with room.
 
 ## Next.js 16 specifics that bite
 
@@ -215,6 +273,18 @@ it cost, how do I book. Rules:
   `next.config.ts` turns that off, because this file is hand written.
 - `tsconfig.json` includes `.next/types`, so deleting a route leaves stale
   generated types and `npm run typecheck` fails until `.next` is removed.
+- **The root layout awaits `connection()`, so every page renders per
+  request.** Every page carries the CSP nonce, and a page prerendered at
+  build time has script tags without one: the policy refuses them and the
+  page never hydrates. The 404 was the first page it happened to.
+- Route group folders, `(site)` and `(auth)`, are not part of the URL.
+- `<ViewTransition>` comes from React canary; its types are in
+  `types/react-canary.d.ts`.
+- A Server Component cannot hand a function to a Client Component, and an
+  icon is a function. Pass its name; `NavTabs` takes icon names for this.
+- React 19 resets a form after its action runs. An action that fails returns
+  the `values` it was given, the form reads them back as `defaultValue`, and
+  anything that must survive a re-render is a controlled input.
 
 ## The shop, and rules it must not bend
 
@@ -266,6 +336,86 @@ Rules that must not be relaxed:
   under a deployment nobody touched.
 - Orders are saved BEFORE payment, and payment is optional: unset the keys
   and the site works without it.
+
+## Messages
+
+`lib/messages.ts`. A conversation is keyed `u:<userId>` for an account and
+`o:<orderId>` for a guest's order; a guest order joins its account's thread
+once an account has the same email (`resolveThreadKey`). Rules:
+
+- **Unread means the other side has not seen it**: `readAt` is null. A
+  message is marked read by `components/mark-read.tsx`, an effect in the page
+  the person is looking at, NEVER while a Server Component renders, because a
+  link prefetch renders the page and would mark it read unseen.
+- **The customer sees their own threads only.** An order thread is reached
+  by its order token; an account thread needs the session. Every message
+  action re-checks both, per "check authorization in the page AND in the
+  action".
+- A change request is a message with `kind: "change_request"`, flagged in
+  the owner's inbox until read.
+
+## Text messages
+
+`lib/sms` has the same shape as `lib/payments`: an `SmsProvider` interface,
+Twilio as the first, a registry, and nothing in `app/` naming a provider.
+Rules that must not be relaxed:
+
+- **The inbound webhook verifies Twilio's signature before anything else**,
+  over the exact public URL and every parameter, in constant time, and a
+  malformed signature is a refusal, not a 500.
+- **A redelivered text is stored once.** `externalId` is unique when set and
+  the write is `createMessageOnce`, an `insertIfAbsent`. Web messages have no
+  id, and NULLs never collide, in Postgres or in the JSON adapter.
+- **Never guess a country code.** `toE164` reads a bare ten digit number as
+  North American only when `business.countryCodes` includes `us` or `ca`;
+  otherwise it needs its `+`. A wrong guess texts a stranger.
+- An inbound text is filed under the most recent order placed from that
+  number (`samePhone`, the last ten digits), or dropped as unmatched.
+
+## Maps
+
+`lib/geo.ts`, `app/api/geo/route.ts`, `components/map.tsx`,
+`components/address-field.tsx`. Rules:
+
+- **Lookups are server side**, `POST /api/geo`, rate limited per caller and
+  cached for a month by `fetch`'s `revalidate`, which is what keeps the site
+  inside Nominatim's fair-use policy. It sends a User-Agent naming the site,
+  as that policy requires.
+- **What comes back is untrusted.** `parseNominatim` turns anything missing,
+  non-numeric or out of range into a miss rather than a NaN in a URL.
+- **A map is a nicety.** A failed lookup shows the address without one and
+  never blocks an order. `MAPS=off` turns the feature off; `GEOCODER_URL`
+  points at another Nominatim-compatible server.
+- The address field reserves the map's space from the start. Inserting it
+  on blur moved the Place order button under a customer's finger mid-click,
+  and the click missed. A browser test caught it.
+
+## Policies
+
+`lib/policies.ts` builds the pages from what the site does. They name a
+processor only when it is configured and make no promise (cancellation
+window, refund timescale, delivery fee, governing law) until it is set under
+`policies` in `lib/business.ts`, the same honesty rule as the FAQ. Until
+`lastUpdated` is set, every page says it is a starting template.
+
+## Onboarding and the signup prompt
+
+`components/onboarding.tsx`, remembered in `localStorage` only, and neither
+shows if storage is unavailable. The welcome card appears once per browser.
+The signup prompt waits for intent (something added to the basket, or a few
+pages seen), never shows during checkout, on an order page or in the
+account, is quiet for 30 days after "Not now", and stays off `/shop` below
+`xl`, where the basket bar already floats above the dock. The order page has
+its own account prompt.
+
+## The Owner Portal
+
+`app/admin`, shell in `app/admin/layout.tsx` and `components/portal-nav.tsx`.
+The layout's `requireOwner` is for the shell's counts; every page and every
+action checks again. The overview shows what needs attention first, then this
+week, coming up and recent activity, and what setup is left. Customers are
+stitched together by email in `lib/customers.ts`, because email is the one
+thing an account, a guest order, an enquiry and a message have in common.
 
 ## Praxi, inward: the permission layer
 
@@ -341,13 +491,24 @@ What is worth testing here, and why those things:
   event, because "exactly one of these marks the order paid" is the claim.
 - The **signature check**, including a non-hex signature, which used to
   make `timingSafeEqual` throw and return a 500 instead of a refusal.
-- **Validation**, because the caps are a security control.
+- **Validation**, because the caps are a security control, and
+  `safeNextPath`, because it is what stands between sign in and an open
+  redirect.
+- **The Twilio signature**, against Twilio's own published example, plus a
+  tampered body, a different URL and a wrong length.
+- **Which thread a message lands in**, because it decides who can read it.
+- **Phone numbers**, because a wrong country code texts a stranger.
+- **The geocoder's parser**, because its input comes from a third party.
+- **The policies promise nothing unset**, because they are the one place the
+  site makes promises in writing.
 
 `npm run smoke` is a separate browser pass over a running server, for the
-four claims that cannot be checked without one: checkout's post, redirect,
+five claims that cannot be checked without one: checkout's post, redirect,
 get; that the CSP blocks an injection AND leaves hydration working; that
-signing out everywhere reaches a second browser; and that an order token is
-the only route in. Playwright is deliberately not a dependency, so it is
+signing out everywhere reaches a second browser; that an order token is the
+only route in; and that no page is wider than a phone after scrolling. Run it
+against a fresh data file so its first signup becomes the owner and the
+portal checks run too. Playwright is deliberately not a dependency, so it is
 installed separately and `npm run verify` does not run it.
 
 A test that writes files puts them under `.test-tmp/`, which is gitignored.

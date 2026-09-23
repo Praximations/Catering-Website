@@ -1,7 +1,8 @@
 # catering-web
 
-A catering website: public pages, a quote form, customer accounts, and an
-owner dashboard for the enquiries that come in.
+A catering website: public pages, an online shop and a quote form, customer
+accounts with order tracking and messages, and an Owner Portal for running
+the business.
 
 ## Running it
 
@@ -22,12 +23,13 @@ the project: parameter properties, `enum`, and `namespace`. `npm run lint`
 rejects all three with a message explaining why.
 
 `npm run smoke` is separate and not part of `verify`. It drives a real
-browser against a running server, because four things cannot be checked any
+browser against a running server, because five things cannot be checked any
 other way: that checkout's post-redirect-get actually lands on the order
 page, that the Content Security Policy blocks an injected script AND does
 not break hydration, that signing out everywhere ends a session in a
-DIFFERENT browser, and that an order token is the only route to an order. It
-needs Playwright, which is deliberately not a dependency of this project:
+DIFFERENT browser, that an order token is the only route to an order, and
+that no page is wider than a phone once it has been scrolled. It needs
+Playwright, which is deliberately not a dependency of this project:
 
     npm i -g playwright && npx playwright install chromium
 
@@ -46,22 +48,36 @@ if you want to set any of it.
 
 ## The pages
 
-    /                 home: what we do, prices from, how ordering works, FAQ
-    /shop             order online: sandwich platters, per-guest menus,
-                      sharing platters, staff
-    /menu             event menus, quoted rather than ordered online
-    /about            how it works: ordering online vs. catering an event
-    /contact          enquiries and quote requests; ?subject= prefills
-    /cart             the order and checkout
-    /orders/[token]   order confirmation and progress, reachable by its link
-    /quote            kept as a redirect to /shop, for old links
-    /login            sign in
-    /signup           create an account
-    /account          customer account: orders, payments, messages,
-                      reordering, saved details, sign out everywhere
-    /admin            the owner's dashboard: orders and enquiries, statuses,
-                      private notes
-    /admin/praxi      what Praxi may do, what it has asked for, what it did
+    /                   home: what we do, prices from, how ordering works, FAQ
+    /shop               order online: sandwich platters, per-guest menus,
+                        sharing platters, staff
+    /menu               event menus, quoted rather than ordered online
+    /quote              plan an event; ?package= preselects a menu
+    /about              how it works: ordering online vs. catering an event
+    /contact            a general message; ?subject= prefills
+    /cart               the order and checkout, with a map of the address
+    /orders/[token]     the order: status, progress, details, and messages,
+                        reachable by its link
+    /policies           privacy, terms, refunds, delivery, cookies,
+                        allergens; searchable
+    /login, /signup     sign in and create an account, without the footer
+
+    /account            Overview: the next delivery and what is owed
+    /account/orders     every order and quote, and reorder
+    /account/messages   the conversation with the business
+    /account/details    saved details, and sign out everywhere
+
+    /admin              Owner Portal overview: what needs attention, this
+                        week, coming up, recent activity, setup left to do
+    /admin/orders       orders by status, search, and each order in full
+    /admin/quotes       quote requests
+    /admin/customers    everyone who has been in touch, stitched together by
+                        email: account, orders, enquiries, messages
+    /admin/inbox        conversations and contact form messages
+    /admin/catalog      prices and availability, as overrides
+    /admin/settings     business details, service area, site notice, team,
+                        connections, policies
+    /admin/praxi        what Praxi may do, what it has asked for, what it did
 
 ## Ordering and payments
 
@@ -100,12 +116,54 @@ own order and cannot reach anybody else's by editing the URL.
 Money is an integer number of cents everywhere. `formatMoney` is the only
 place that turns cents into something readable.
 
+## Messages, texts and maps
+
+**Messages.** A customer and the business talk inside the site: on the order
+page, in the account's Messages tab, and in the Owner Portal's inbox and on
+each order. A guest's order has its own thread; once that guest has an
+account with the same email, their threads become one. Unread means the
+other side has not opened it yet, and a message is marked read by the page
+the person is looking at, never by a server render, which a link prefetch
+would trigger without anybody reading anything.
+
+**Text messages** are optional. With the three `TWILIO_*` variables set, the
+owner can send a reply as a text too, and a customer's texted reply is filed
+under their most recent order by phone number. The inbound webhook,
+`/api/sms/inbound`, refuses any request without Twilio's signature, and a
+redelivered text is stored once. A number with no country code is only read
+as North American when the business is in the US or Canada: guessing a
+country is how a text reaches a stranger.
+
+**Maps.** Wherever an address matters (checkout, the order page, the Owner
+Portal's order and customer pages, the service area in settings) it is shown
+on a map. Lookups go through the server, `POST /api/geo`, rate limited and
+cached for a month, to OpenStreetMap's Nominatim, and the map is an
+OpenStreetMap embed, the one origin the Content Security Policy lets the site
+frame. No key is needed. `MAPS=off` turns it all off; `GEOCODER_URL` points
+at your own Nominatim. A lookup that fails shows the address without a map
+and never blocks an order.
+
+## Policies
+
+`/policies` has privacy, terms, refunds, delivery, cookies and allergens,
+built from `lib/policies.ts` so they describe what the site actually does.
+They name a payment processor, a text message provider or a map service only
+when one is configured, and they promise no cancellation window, refund
+timescale, delivery fee or governing law until those are set under `policies` in
+`lib/business.ts`. Until `lastUpdated` is set, every page says it is a
+starting template.
+
 ## Where things live
 
-    lib/business.ts   the name, contact details, lead time, minimum. ONE file.
-    lib/menu.ts       the packages and dishes
-    app/globals.css   the palette and radii, as tokens
-    app/layout.tsx    the two typefaces
+    lib/business.ts      the name, contact details, location, service area,
+                         policy terms. ONE file.
+    lib/menu.ts          the packages and dishes
+    app/globals.css      the palette, radius and shadow scales, and motion
+                         timing, as tokens
+    app/layout.tsx       the two typefaces
+    components/ui.tsx    buttons, cards, fields, pills, tabs, disclosures,
+                         tooltips: every screen is assembled from these
+    components/icons.tsx the icon set, inline SVG
 
 Change `lib/business.ts` and the whole site follows: the header, the
 footer, the metadata, and the copy on every page. Same idea as the design
@@ -282,6 +340,11 @@ than falling back to the local file, because each serverless instance would
 get its own copy on a disk that is thrown away, so orders would appear to
 save and then vanish.
 
+Optional, and each off until set: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
+and `TWILIO_FROM_NUMBER` for text messages, and `GEOCODER_URL` or `MAPS=off`
+for maps. After pulling a schema change, run `supabase/schema.sql` again; it
+is idempotent.
+
 In Stripe, add a webhook ending in `/api/stripe/webhook` and subscribe it
 to `checkout.session.completed`,
 `checkout.session.async_payment_succeeded`,
@@ -303,9 +366,9 @@ What is in place, and what each piece is actually for:
   process gives every serverless instance its own allowance. Sign in is
   limited per address AND per caller, because either alone has a hole.
 - **Revocable sessions.** A signed cookie cannot be recalled, so signing
-  out only clears the browser doing it. "Sign out everywhere", on the
-  account page, moves the account's session epoch and every cookie ever
-  issued for it stops working at once.
+  out only clears the browser doing it. "Sign out everywhere", under the
+  account's Details or the Owner Portal's Settings, moves the account's
+  session epoch and every cookie ever issued for it stops working at once.
 - **Verified email on Google sign in.** Signing in with Google connects to
   an existing account by address, so an unverified address would be enough
   to take over the account owning it.
@@ -317,6 +380,11 @@ What is in place, and what each piece is actually for:
   read without one is an unbounded write.
 - **Payment amounts are verified** against the stored order, and webhook
   events are deduplicated by the provider's event id.
+- **Inbound texts are signed.** The SMS webhook checks Twilio's HMAC over the
+  exact URL and every parameter, in constant time, before anything is stored.
+- **Sign in only ever sends you back to this site.** `?next=` is accepted only
+  as a path here, because anything else turns the real sign in page into a
+  link to a look-alike.
 
 ## Stack
 
