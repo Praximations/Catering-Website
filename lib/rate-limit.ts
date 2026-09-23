@@ -64,7 +64,8 @@ export interface RateLimitResult {
  * without storing who it is about.
  */
 export function bucketFor(action: string, identifier: string): string {
-  const secret = process.env.SESSION_SECRET ?? "development-rate-limit-salt";
+  // || so a blank SESSION_SECRET= from .env.example still gets a key.
+  const secret = process.env.SESSION_SECRET || "development-rate-limit-salt";
   const digest = createHmac("sha256", secret)
     .update(`${action}:${identifier.toLowerCase()}`)
     .digest("base64url")

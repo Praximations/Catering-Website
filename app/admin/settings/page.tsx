@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { logoutEverywhereAction } from "@/app/actions/auth";
 import {
   CheckCircleIcon,
   CreditCardIcon,
   FileTextIcon,
   GlobeIcon,
   KeyIcon,
+  LogOutIcon,
   MapPinIcon,
   PhoneIcon,
   ShieldIcon,
@@ -14,7 +16,8 @@ import {
   type Icon,
 } from "@/components/icons";
 import { MapFrame } from "@/components/map";
-import { Avatar, cardClass, cx, KeyValues, PageHeader, Pill, Section } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Avatar, button, cardClass, cx, KeyValues, PageHeader, Pill, Section } from "@/components/ui";
 import { business, isPlaceholderBusiness } from "@/lib/business";
 import { db, isSupabaseConfigured } from "@/lib/db";
 import { activeGeocoder, mapsEnabled } from "@/lib/geo";
@@ -164,6 +167,15 @@ export default async function OwnerSettings() {
               </Link>
               .
             </p>
+            {/* The account with the keys to everything is the one most worth
+                being able to recall from a lost phone or a shared computer. */}
+            <form action={logoutEverywhereAction} className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+              <p className="text-sm text-ink-muted">Ends every session for your account, on every device.</p>
+              <SubmitButton pendingLabel="Signing out" className={button("secondary", "sm")}>
+                <LogOutIcon className="size-4" />
+                Sign out everywhere
+              </SubmitButton>
+            </form>
           </div>
         </Section>
 

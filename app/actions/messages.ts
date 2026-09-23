@@ -90,6 +90,11 @@ export async function sendAccountMessageAction(
   const body = text(formData, "body", LIMITS.message);
   if (body.length < MIN_BODY) return { error: "Write a message first." };
 
+  // Per account, not per address: an account is free to open, and the owner's
+  // inbox is what a flood would bury.
+  const limit = await checkRateLimit(bucketFor("account-message", user.id), MESSAGE_LIMIT);
+  if (!limit.allowed) return { error: "That is a lot of messages. Please call us instead." };
+
   // Only honoured when it is one of THEIR orders, so a customer cannot attach
   // a message to a stranger's order.
   const requestedOrderId = text(formData, "orderId", LIMITS.id);

@@ -71,7 +71,9 @@ const nominatim: Geocoder = {
   id: "nominatim",
   label: "OpenStreetMap",
   async geocode(query) {
-    const base = (process.env.GEOCODER_URL ?? "https://nominatim.openstreetmap.org").replace(/\/$/, "");
+    // ||, not ??: a blank GEOCODER_URL= copied from .env.example means "unset",
+    // and ?? would keep the empty string and send every lookup nowhere.
+    const base = (process.env.GEOCODER_URL || "https://nominatim.openstreetmap.org").replace(/\/$/, "");
     const params = new URLSearchParams({ q: query, format: "jsonv2", limit: "1", addressdetails: "0" });
     if (business.countryCodes) params.set("countrycodes", business.countryCodes);
 
