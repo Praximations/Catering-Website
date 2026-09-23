@@ -20,7 +20,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   const unread = await countUnreadForCustomer(user.id, await orderIdsForAccount(user.id));
 
   return (
-    <Container>
+    <Container size="medium">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={user.name} className="size-12 text-sm" />

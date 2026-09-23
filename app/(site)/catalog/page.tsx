@@ -10,21 +10,22 @@ import { menu } from "@/lib/menu";
 import { formatMoney } from "@/lib/shop";
 
 export const metadata: Metadata = {
-  title: "Event menus",
-  description: "Lunch platters, hot buffets, entrée trays, soups, salads and sides for events.",
+  title: "Catalog",
+  description: "Lunch platters, hot buffets, entrée trays, soups, salads and sides for events, with prices.",
 };
 
 /**
- * The event menus. THESE ARE QUOTED, NOT ORDERED ONLINE: the dishes here are
- * not in the online catalog, so every package leads to the quote request with
- * the package already chosen, never to /shop.
+ * The catalog: everything the kitchen cooks for events. THESE ARE QUOTED, NOT
+ * ORDERED ONLINE: the dishes here are not sold in the shop, so every package
+ * leads to the quote request with the package already chosen, never to /shop.
+ * (It was /menu, which next.config.ts still redirects here.)
  */
-export default function MenuPage() {
+export default function CatalogPage() {
   return (
     <Container>
       <PageHeader
-        title="Event menus"
-        lede="Cooked for your day and adjusted to your guests, with one clear price before anything is booked."
+        title="Catalog"
+        lede="Everything we cook for events, with prices. Cooked for your day and adjusted to your guests, with one clear price before anything is booked."
         actions={
           <>
             <Link href="/quote" className={button("primary")}>

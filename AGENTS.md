@@ -30,8 +30,8 @@ module in `lib/` is written against it.
 - Design tokens live in `app/globals.css` and reach Tailwind through
   `@theme inline`: `bg-page`, `text-ink-muted`, `border-line`,
   `font-display`, the radius scale `rounded-sm` to `rounded-2xl`, `shadow-xs`
-  to `shadow-lg`, and the motion tokens (`ease-soft`, `ease-spring`,
-  `animate-*`). The public palette is white, botanical green, and one warm
+  to `shadow-lg`, the motion tokens (`ease-soft`, `ease-spring`,
+  `animate-*`), and the page width `max-w-page`. The public palette is white, botanical green, and one warm
   food accent. Use the tokens, never arbitrary hex.
 - Business details live in `lib/business.ts`, ONE file, same idea as the
   tokens. No page hard-codes a name, a phone number, a lead time, or a
@@ -214,9 +214,10 @@ it cost, how do I book. Rules:
   window, delivery fee or refund promise until the business sets one. Any
   answer about paying online is conditional on `isPaymentConfigured`.
 - **Never name a payment provider in `app/`.** Use `activeProvider().label`.
-- **The event menus are quoted, not sold online.** Each package on `/menu`
-  links to `/quote?package=<slug>`, never to `/shop`, because the shop does
-  not sell those dishes. The contact page still prefills `?subject=`, capped
+- **The catalog is quoted, not sold online.** `/catalog` is the event menus
+  (it was `/menu`, which `next.config.ts` redirects), and each package links
+  to `/quote?package=<slug>`, never to `/shop`, because the shop does not
+  sell those dishes. The contact page still prefills `?subject=`, capped
   at `LIMITS.subject`.
 - **The phone is one tap from the header** at every width. People book
   caterers by phone.
@@ -238,6 +239,11 @@ Every screen, public, account and portal, is assembled from the same parts.
   shadow or an icon moving; a button never lifts.
 - **Scroll reveals hide only what starts below the fold** (`reveal()` plus
   `RevealOnScroll`), and nothing at all without JavaScript or when printing.
+  `reveal(index, { motion })` rises by default, `zoom`s a photo (the frame
+  settles while the image eases back) or just `fade`s; the index staggers a
+  row. NEVER a sideways motion: a transform counts towards the page's width,
+  and a slide from the right is a phone page wider than the phone. Big photos
+  add `parallax`, a scroll-driven animation with a still fallback.
   Page transitions are React's `<ViewTransition>` in `app/(site)/template.tsx`.
   Sheets are a native `<dialog>` (`components/dialog.tsx`); expandable
   detail is a native `<details>` (`Disclosure`).
@@ -245,6 +251,17 @@ Every screen, public, account and portal, is assembled from the same parts.
   goes behind a `Disclosure`, a `Tooltip` or its own page. Say it once: no
   label that repeats its heading, no second button that does what the first
   one does.
+- **A caterer's site, not an app.** On a desktop the main links are words,
+  with Order online as the button on the right and a slim strip above saying
+  where the business delivers and how to reach it; icons belong to the
+  phone's dock and menu. Facts are plain lines (`FactChips`), not tags. The
+  home page alternates full-width white bands with the page and leads with
+  large food photos. Its "what every order gets" lines are only promises the
+  site already makes elsewhere.
+- **Widths.** Pages use the full measure, `max-w-page`, so a wide screen is
+  not mostly margin. Forms, checkout and the account use
+  `Container size="medium"`, where a longer line is harder to follow, and
+  single-column reading uses `narrow`.
 - **Three shells, as route groups.** `app/(site)` has the navbar, footer,
   phone dock and onboarding. `app/(auth)` is sign in and sign up with no
   footer, because anything leading away from the form is a distraction.

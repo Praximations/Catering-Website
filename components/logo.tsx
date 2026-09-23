@@ -24,11 +24,11 @@ export function Logo({
       className={cx("group inline-flex min-w-0 items-center gap-2.5 rounded-full pr-2 text-ink", className)}
       aria-label={compact ? `${name}, home` : undefined}
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent text-on-accent shadow-xs transition-transform duration-300 ease-spring group-hover:-rotate-6 group-hover:scale-105">
-        <UtensilsIcon className="size-4" />
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-on-accent shadow-xs transition-transform duration-300 ease-spring group-hover:-rotate-6 group-hover:scale-105">
+        <UtensilsIcon className="size-[1.125rem]" />
       </span>
       {compact ? null : (
-        <span className="truncate font-display text-[0.9375rem] font-semibold tracking-tight">{name}</span>
+        <span className="truncate font-display text-base font-semibold tracking-tight">{name}</span>
       )}
     </Link>
   );

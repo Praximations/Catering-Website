@@ -33,7 +33,7 @@ export default async function ContactPage({
   ];
 
   return (
-    <Container>
+    <Container size="medium">
       <PageHeader title="Contact" lede="Questions, or help with an order. We usually reply within a working day." />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">

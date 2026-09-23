@@ -14,7 +14,7 @@ import { siteUrl } from "@/lib/site";
 const PUBLIC_PAGES = [
   { path: "/", changeFrequency: "monthly", priority: 1 },
   { path: "/shop", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/menu", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/catalog", changeFrequency: "monthly", priority: 0.8 },
   { path: "/quote", changeFrequency: "monthly", priority: 0.8 },
   { path: "/about", changeFrequency: "yearly", priority: 0.6 },
   { path: "/contact", changeFrequency: "yearly", priority: 0.6 },

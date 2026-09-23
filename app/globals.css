@@ -104,10 +104,19 @@
   --animate-pop: pop 460ms var(--ease-spring) both;
   --animate-ping-soft: ping-soft 2.2s var(--ease-out-soft) infinite;
   --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-hero-zoom: hero-zoom 1.8s var(--ease-out-soft) both;
+
+  /* The site's measure on a wide screen, as max-w-page. Wide enough that a
+     1920px screen is not two-thirds margin; forms and checkout use max-w-6xl,
+     where a longer line is harder to follow. */
+  --container-page: 100rem;
 }
 
 /* -------------------------------- keyframes -------------------------------- */
 
+@keyframes hero-zoom {
+  from { transform: scale(1.08); }
+}
 @keyframes fade-in {
   from { opacity: 0; }
 }
@@ -249,19 +258,63 @@ summary {
 /* ----------------------------- scroll reveals ------------------------------ */
 
 /*
- * Content fades up as it enters the viewport. components/motion.tsx only
- * hides elements that START below the fold, so nothing already on screen
+ * Content rises into place as it enters the viewport. components/motion.tsx
+ * only hides elements that START below the fold, so nothing already on screen
  * flickers, and without JavaScript nothing is ever hidden at all.
+ *
+ * Three motions, chosen with reveal(index, { motion }) in ui.tsx:
+ *   up    the default: fades in while rising
+ *   zoom  for photos: the frame settles from slightly small while the image
+ *         inside eases back from slightly large, which reads as a camera
+ *         settling rather than a box popping
+ *   fade  for things that should not move, such as a long list
+ *
+ * No sideways motion, on purpose: a transform counts towards the page's
+ * scrollable width, and something sliding in from the right is how a phone
+ * page ends up wider than the phone.
  */
 [data-reveal="pending"] {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(32px);
+}
+[data-reveal="pending"][data-reveal-motion="zoom"] {
+  transform: scale(0.94);
+}
+[data-reveal="pending"][data-reveal-motion="fade"] {
+  transform: none;
 }
 [data-reveal="in"] {
   transition:
-    opacity 520ms var(--ease-out-soft),
-    transform 620ms var(--ease-out-soft);
+    opacity 700ms var(--ease-out-soft),
+    transform 900ms var(--ease-out-soft);
   transition-delay: var(--reveal-delay, 0ms);
+}
+[data-reveal-motion="zoom"] img {
+  transition: transform 1400ms var(--ease-out-soft);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+[data-reveal="pending"][data-reveal-motion="zoom"] img {
+  transform: scale(1.12);
+}
+
+/*
+ * Parallax on the big photos, driven by the scroll position itself rather
+ * than a scroll listener, so it costs nothing on the main thread. Browsers
+ * without scroll-driven animations show a still photo, which is the right
+ * fallback. The photo is scaled up a little so its edges never show.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .parallax img {
+      animation: parallax linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+  }
+}
+@keyframes parallax {
+  from { transform: translateY(-6%) scale(1.14); }
+  to { transform: translateY(6%) scale(1.14); }
 }
 
 /* ------------------------------ disclosures -------------------------------- */

@@ -16,6 +16,8 @@ import {
   HomeIcon,
   InfoIcon,
   LogOutIcon,
+  MailIcon,
+  MapPinIcon,
   MenuIcon,
   PhoneIcon,
   ReceiptIcon,
@@ -37,14 +39,21 @@ interface NavLink {
   motion: "hop" | "tilt" | "wiggle" | "spin";
 }
 
-/** The main links. Short labels; the icon carries half the meaning. */
+/**
+ * The main links, in plain words. On a desktop they are words alone, the way
+ * a shop's own site reads; the icons belong to the phone's menu and dock,
+ * where a thumb is looking for a target.
+ */
 const LINKS: NavLink[] = [
-  { href: "/shop", label: "Order", icon: BagIcon, motion: "hop" },
-  { href: "/menu", label: "Menus", icon: BookIcon, motion: "tilt" },
+  { href: "/catalog", label: "Catalog", icon: BookIcon, motion: "tilt" },
+  { href: "/shop", label: "Order online", icon: BagIcon, motion: "hop" },
   { href: "/quote", label: "Events", icon: SparklesIcon, motion: "spin" },
   { href: "/about", label: "How it works", icon: InfoIcon, motion: "wiggle" },
   { href: "/contact", label: "Contact", icon: ChatIcon, motion: "wiggle" },
 ];
+
+/** On a desktop, ordering is the button on the right, so it is not a link too. */
+const DESKTOP_LINKS = LINKS.filter((link) => link.href !== "/shop");
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -58,10 +67,12 @@ function homeFor(user: NavUser): string {
 /**
  * The navbar, floating and rounded rather than a full-width strip.
  *
- * DESKTOP: logo left, the main links centred, and the phone, basket and
- * account on the right. The active link carries a soft pill that SLIDES to
- * the next link on navigation (a named ViewTransition, so the browser does
- * the motion and there is no measuring code).
+ * DESKTOP: a slim strip above it says where the business delivers and how to
+ * reach it, the two things a caterer's customer checks first. The bar has the
+ * logo, the main links, the phone number, the basket, the account and an
+ * Order online button: a business's site, with the thing to do on the right.
+ * The active link carries a soft pill that SLIDES to the next link on
+ * navigation (a named ViewTransition, so the browser does the motion).
  *
  * PHONE: the desktop bar is not squeezed down. A slim top bar keeps the logo,
  * the phone and a menu button, and the destinations people use most sit in a
@@ -74,6 +85,8 @@ export function SiteNavClient({
   businessName,
   phone,
   phoneHref,
+  email,
+  serviceArea,
 }: {
   user: NavUser;
   cartCount: number;
@@ -81,6 +94,8 @@ export function SiteNavClient({
   businessName: string;
   phone: string;
   phoneHref: string;
+  email: string;
+  serviceArea: string;
 }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
@@ -110,46 +125,74 @@ export function SiteNavClient({
   return (
     <>
       {/* ------------------------------ desktop ------------------------------ */}
-      <header className="sticky top-3 z-40 hidden px-4 lg:block">
-        <div className={cx("mx-auto grid h-14 max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 pr-2 pl-3", barClass)}>
-          <Logo name={businessName} />
+      <div className="hidden lg:block">
+        <div className="mx-auto flex h-10 max-w-page items-center justify-between gap-6 px-8 text-[0.8125rem] text-ink-muted">
+          <p className="flex min-w-0 items-center gap-1.5">
+            <MapPinIcon className="size-3.5 shrink-0 text-accent" />
+            <span className="truncate">Delivering across {serviceArea}</span>
+          </p>
+          <p className="flex shrink-0 items-center gap-5">
+            <span>Made fresh, delivered ready to serve</span>
+            <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink">
+              <MailIcon className="size-3.5" />
+              {email}
+            </a>
+          </p>
+        </div>
+      </div>
 
-          <nav aria-label="Main">
-            <ul className="flex items-center gap-0.5">
-              {LINKS.map((link) => {
-                const active = isActive(pathname, link.href);
-                return (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      aria-current={active ? "page" : undefined}
-                      className={cx(
-                        "group relative isolate inline-flex h-10 items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors duration-200",
-                        active ? "text-accent-strong" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
-                      )}
-                    >
-                      {active ? (
-                        <ViewTransition name="nav-pill" share="nav-pill" default="none">
-                          <span aria-hidden className="absolute inset-0 -z-10 rounded-full bg-accent/12" />
-                        </ViewTransition>
-                      ) : null}
-                      <link.icon data-motion={link.motion} className="nav-icon size-[1.125rem]" />
-                      {link.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+      <header className="sticky top-3 z-40 hidden lg:block">
+        <div className="mx-auto max-w-page px-8">
+          <div className={cx("flex h-16 items-center gap-6 pr-2.5 pl-4", barClass)}>
+            <Logo name={businessName} />
 
-          <div className="flex items-center justify-end gap-1">
-            <Tooltip label={phone}>
-              <a href={phoneHref} aria-label={`Call ${phone}`} className={iconButtonClass}>
-                <PhoneIcon data-motion="wiggle" className="nav-icon size-[1.125rem]" />
+            <nav aria-label="Main" className="flex flex-1 justify-center">
+              <ul className="flex items-center gap-1">
+                {DESKTOP_LINKS.map((link) => {
+                  const active = isActive(pathname, link.href);
+                  return (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        aria-current={active ? "page" : undefined}
+                        className={cx(
+                          "relative isolate inline-flex h-10 items-center rounded-full px-4 text-[0.9375rem] font-medium transition-colors duration-200",
+                          active ? "text-accent-strong" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
+                        )}
+                      >
+                        {active ? (
+                          <ViewTransition name="nav-pill" share="nav-pill" default="none">
+                            <span aria-hidden className="absolute inset-0 -z-10 rounded-full bg-accent/12" />
+                          </ViewTransition>
+                        ) : null}
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-1">
+              <a
+                href={phoneHref}
+                aria-label={`Call ${phone}`}
+                className="group inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"
+              >
+                <PhoneIcon data-motion="wiggle" className="nav-icon size-4 text-accent" />
+                <span className="hidden xl:inline">{phone}</span>
               </a>
-            </Tooltip>
-            <BasketButton count={cartCount} active={pathname === "/cart"} />
-            <AccountMenu user={user} unread={unread} pathname={pathname} />
+              <BasketButton count={cartCount} active={pathname === "/cart"} />
+              <AccountMenu user={user} unread={unread} pathname={pathname} />
+              <Link
+                href="/shop"
+                aria-current={isActive(pathname, "/shop") ? "page" : undefined}
+                className="group ml-1.5 inline-flex h-10 items-center gap-1.5 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent shadow-xs transition-colors hover:bg-accent-strong"
+              >
+                Order online
+                <ChevronRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -194,7 +237,7 @@ export function SiteNavClient({
                     )}
                   >
                     <link.icon data-motion={link.motion} className="nav-icon size-5 text-accent" />
-                    <span className="flex-1">{link.label === "Events" ? "Plan an event" : link.label === "Order" ? "Order online" : link.label}</span>
+                    <span className="flex-1">{link.label === "Events" ? "Plan an event" : link.label}</span>
                     <ChevronRightIcon className="size-4 text-ink-subtle" />
                   </Link>
                 </li>
@@ -340,7 +383,7 @@ function AccountMenu({ user, unread, pathname }: { user: NavUser; unread: number
     return (
       <Link
         href="/login"
-        className="group ml-1 inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink shadow-xs transition-colors hover:border-line-strong hover:bg-raised"
+        className="group inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"
       >
         <UserIcon data-motion="hop" className="nav-icon size-4" />
         Sign in
@@ -409,7 +452,7 @@ function MobileDock({ user, cartCount, pathname }: { user: NavUser; cartCount: n
   const accountHref = user ? homeFor(user) : "/login";
   const items: { href: string; label: string; icon: Icon; badge?: number; primary?: boolean; match?: string }[] = [
     { href: "/", label: "Home", icon: HomeIcon },
-    { href: "/menu", label: "Menus", icon: BookIcon },
+    { href: "/catalog", label: "Catalog", icon: BookIcon },
     { href: "/shop", label: "Order", icon: BagIcon, primary: true },
     { href: "/cart", label: "Basket", icon: ReceiptIcon, badge: cartCount },
     { href: accountHref, label: user ? "Account" : "Sign in", icon: UserIcon, match: user ? accountHref : "/login" },

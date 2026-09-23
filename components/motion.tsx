@@ -30,11 +30,13 @@ export function RevealOnScroll() {
           observer.unobserve(entry.target);
         }
       },
-      { rootMargin: "0px 0px -6% 0px", threshold: 0.06 }
+      // A little way in before it moves, so the motion is seen rather than
+      // finished just below the edge of the screen.
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.1 }
     );
 
     const arm = () => {
-      const fold = window.innerHeight * 0.94;
+      const fold = window.innerHeight * 0.9;
       document.querySelectorAll<HTMLElement>('[data-reveal=""]').forEach((element) => {
         if (element.getBoundingClientRect().top < fold) {
           element.setAttribute("data-reveal", "static");

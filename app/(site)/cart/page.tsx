@@ -39,9 +39,9 @@ export default async function CartPage() {
               <Link href="/shop" className={button("primary")}>
                 Order online
               </Link>
-              <Link href="/menu" className={button("secondary")}>
+              <Link href="/catalog" className={button("secondary")}>
                 <BookIcon className="size-4" />
-                Event menus
+                Browse the catalog
               </Link>
             </div>
           }
@@ -62,7 +62,7 @@ export default async function CartPage() {
   ].join("-");
 
   return (
-    <Container>
+    <Container size="medium">
       <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link href="/shop" className="group inline-flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink">

@@ -165,7 +165,7 @@ function Welcome({ businessName, onDone }: { businessName: string; onDone: () =>
   const actions: { href: string; label: string; icon: Icon }[] = [
     { href: "/shop", label: "Order a lunch", icon: BagIcon },
     { href: "/quote", label: "Plan an event", icon: SparklesIcon },
-    { href: "/menu", label: "Menus", icon: BookIcon },
+    { href: "/catalog", label: "Catalog", icon: BookIcon },
   ];
   return (
     <>

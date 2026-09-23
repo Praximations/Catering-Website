@@ -41,7 +41,7 @@ export default async function QuotePage({
   ];
 
   return (
-    <Container>
+    <Container size="medium">
       <PageHeader title="Plan an event" lede="Tell us the basics. We reply with a menu and one clear price." />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">

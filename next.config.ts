@@ -20,6 +20,15 @@ const nextConfig: NextConfig = {
   // The framework and its version are not the visitor's business.
   poweredByHeader: false,
 
+  // The event menus were at /menu before they were called the catalog. Old
+  // links, bookmarks and search results still land in the right place.
+  async redirects() {
+    return [
+      { source: "/menu", destination: "/catalog", permanent: true },
+      { source: "/menu/:path*", destination: "/catalog", permanent: true },
+    ];
+  },
+
   async headers() {
     return [
       {

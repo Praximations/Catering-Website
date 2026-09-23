@@ -19,7 +19,7 @@ const columns = [
     title: "Order",
     links: [
       { href: "/shop", label: "Order online" },
-      { href: "/menu", label: "Event menus" },
+      { href: "/catalog", label: "Catalog" },
       { href: "/quote", label: "Plan an event" },
     ],
   },
@@ -49,8 +49,8 @@ export function SiteFooter() {
   ].filter((social) => social.href);
 
   return (
-    <footer className="px-3 pt-20 pb-28 sm:px-4 lg:pb-4">
-      <div className="mx-auto max-w-6xl rounded-2xl border border-line bg-surface shadow-sm">
+    <footer className="mx-auto w-full max-w-page px-3 pt-20 pb-28 sm:px-6 lg:px-8 lg:pb-6">
+      <div className="rounded-2xl border border-line bg-surface shadow-sm">
         <div className="grid grid-cols-1 gap-8 px-6 py-8 sm:px-10 sm:py-10 md:grid-cols-[1.3fr_3fr] md:gap-10">
           <div className="max-w-xs">
             <Logo name={business.name} />

@@ -118,8 +118,8 @@ export default async function ShopPage() {
 
           <p className="text-sm text-ink-muted" {...reveal()}>
             Hot buffets and event menus are quoted for you.{" "}
-            <Link href="/menu" className={textLinkClass}>
-              See event menus <ArrowRightIcon className={nudgeClass} />
+            <Link href="/catalog" className={textLinkClass}>
+              See the catalog <ArrowRightIcon className={nudgeClass} />
             </Link>
           </p>
         </div>

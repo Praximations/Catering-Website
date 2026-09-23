@@ -51,7 +51,8 @@ if you want to set any of it.
     /                   home: what we do, prices from, how ordering works, FAQ
     /shop               order online: sandwich platters, per-guest menus,
                         sharing platters, staff
-    /menu               event menus, quoted rather than ordered online
+    /catalog            the event menus with prices, quoted rather than
+                        ordered online (/menu redirects here)
     /quote              plan an event; ?package= preselects a menu
     /about              how it works: ordering online vs. catering an event
     /contact            a general message; ?subject= prefills

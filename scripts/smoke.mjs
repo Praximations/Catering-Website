@@ -273,7 +273,7 @@ async function widthAfterScrolling(path) {
   return phonePage.evaluate(() => window.innerWidth);
 }
 
-for (const path of ["/", "/shop", "/menu", "/cart", "/policies/privacy"]) {
+for (const path of ["/", "/shop", "/catalog", "/cart", "/policies/privacy"]) {
   const width = await widthAfterScrolling(path);
   check(`${path} fits a 390px phone`, width === 390, `${width}px wide`);
 }

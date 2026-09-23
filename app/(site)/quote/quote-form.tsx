@@ -38,8 +38,8 @@ export function QuoteForm({
         <h2 className="mt-5 font-display text-2xl font-semibold tracking-tight">Thank you, we have it</h2>
         <p className="mt-2 max-w-sm text-ink-muted">We will reply by email with a menu and a price, usually within a working day.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <Link href="/menu" className={button("secondary")}>
-            Browse the menus
+          <Link href="/catalog" className={button("secondary")}>
+            Browse the catalog
           </Link>
           <Link href="/" className={button("ghost")}>
             Back home

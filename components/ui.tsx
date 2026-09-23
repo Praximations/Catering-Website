@@ -200,10 +200,11 @@ export function Container({
 }: {
   children: ReactNode;
   className?: string;
-  size?: "narrow" | "default" | "wide";
+  /** default is the site's full measure; medium for forms and checkout; narrow for one column of reading. */
+  size?: "narrow" | "medium" | "default";
 }) {
-  const width = size === "narrow" ? "max-w-3xl" : size === "wide" ? "max-w-7xl" : "max-w-6xl";
-  return <div className={cx("mx-auto w-full px-4 sm:px-6", width, className)}>{children}</div>;
+  const width = size === "narrow" ? "max-w-3xl" : size === "medium" ? "max-w-6xl" : "max-w-page";
+  return <div className={cx("mx-auto w-full px-4 sm:px-6 lg:px-8", width, className)}>{children}</div>;
 }
 
 /* ----------------------------------- pills --------------------------------- */
@@ -437,17 +438,13 @@ export function FactChips({
   className?: string;
 }) {
   return (
-    <dl className={cx("flex flex-wrap gap-2", className)}>
+    // Plain lines rather than chips: a shop states its terms, an app shows tags.
+    <dl className={cx("flex flex-wrap gap-x-7 gap-y-3", className)}>
       {facts.map((fact) => (
-        <div
-          key={fact.label}
-          className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pr-3.5 pl-2 text-sm shadow-xs"
-        >
-          <span className="grid size-6 place-items-center rounded-full bg-accent-soft text-accent">
-            <fact.icon className="size-3.5" />
-          </span>
+        <div key={fact.label} className="inline-flex items-center gap-2 text-[0.9375rem]">
+          <fact.icon className="size-4 shrink-0 text-accent" />
           <dt className="sr-only">{fact.label}</dt>
-          <dd className="text-ink">{fact.value}</dd>
+          <dd className="font-medium text-ink">{fact.value}</dd>
         </div>
       ))}
     </dl>
@@ -621,15 +618,23 @@ export function IconTile({ icon: IconGlyph, tone = "accent", className }: { icon
   );
 }
 
+export type RevealMotion = "up" | "zoom" | "fade";
+
 /**
- * Stagger helper for scroll reveals. Spread onto any element:
- * <li {...reveal(index)}>. Only elements that start below the fold are ever
- * hidden; see components/motion.tsx.
+ * Scroll reveal, spread onto any element: <li {...reveal(index)}>, or
+ * reveal(0, { motion: "zoom" }) for a photo. The index staggers a row of
+ * cards so they arrive one after another. Only elements that start below the
+ * fold are ever hidden; see components/motion.tsx and globals.css.
  */
-export function reveal(index = 0, step = 60): { "data-reveal": ""; style?: CSSProperties } {
-  return index > 0
-    ? { "data-reveal": "", style: { ["--reveal-delay" as string]: `${Math.min(index, 8) * step}ms` } }
-    : { "data-reveal": "" };
+export function reveal(
+  index = 0,
+  { step = 90, motion = "up" }: { step?: number; motion?: RevealMotion } = {}
+): { "data-reveal": ""; "data-reveal-motion"?: RevealMotion; style?: CSSProperties } {
+  return {
+    "data-reveal": "",
+    ...(motion === "up" ? {} : { "data-reveal-motion": motion }),
+    ...(index > 0 ? { style: { ["--reveal-delay" as string]: `${Math.min(index, 8) * step}ms` } } : {}),
+  };
 }
 
 /**
@@ -640,7 +645,7 @@ export function reveal(index = 0, step = 60): { "data-reveal": ""; style?: CSSPr
 export function SkeletonPage({ label, rows = 3 }: { label: string; rows?: number }) {
   const bar = "rounded-md bg-sunken/70";
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto w-full max-w-page px-4 py-10 sm:px-6 lg:px-8">
       <p className="sr-only" role="status" aria-live="polite">
         Loading {label.toLowerCase()}
       </p>
