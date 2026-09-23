@@ -269,7 +269,13 @@ cookie format changed, and old cookies are rejected rather than trusted.
 
 Set `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, and the Stripe variables from
-`.env.example`.
+`.env.example`. Do not import that file as it stands: its
+`NEXT_PUBLIC_SITE_URL` is the local address, and a production build would put
+it in every payment return URL and the sitemap.
+
+`SUPABASE_SERVICE_ROLE_KEY` takes either a secret key (`sb_secret_...`) or
+the legacy `service_role` key. A secret key is sent on the `apikey` header
+only, because Supabase rejects one presented as a bearer token.
 
 Supabase is not optional there. The site refuses to start without it rather
 than falling back to the local file, because each serverless instance would

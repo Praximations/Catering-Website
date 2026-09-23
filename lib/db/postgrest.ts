@@ -17,6 +17,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const isSupabaseConfigured = Boolean(url && serviceRoleKey);
 export const isSupabasePartiallyConfigured = Boolean(url) !== Boolean(serviceRoleKey);
+export const configuredKeyProblem = serviceRoleKey ? serverKeyProblem(serviceRoleKey) : null;
 
 /** Postgres tells us WHY a write was refused. These are the codes we act on. */
 const UNIQUE_VIOLATION = "23505";
@@ -47,11 +48,48 @@ export class StorageError extends Error {
   }
 }
 
+/**
+ * Where the key goes depends on which kind of key it is.
+ *
+ * A legacy service_role key is a JWT, and PostgREST takes the role from the
+ * bearer token, so it goes in both headers. A secret key (sb_secret_...) is
+ * not a JWT: the gateway swaps it for one itself, and REJECTS a request that
+ * also carries it as a bearer token. Supabase is retiring the legacy keys, so
+ * both shapes have to work.
+ */
+export function authHeaders(key: string): Record<string, string> {
+  return key.startsWith("sb_") ? { apikey: key } : { apikey: key, Authorization: `Bearer ${key}` };
+}
+
+/**
+ * Why this key cannot be the server's key, or null when it can.
+ *
+ * Supabase shows the public key and the server key side by side, and pasting
+ * the wrong one is the likeliest setup mistake. It would not fail loudly:
+ * every query would come back "permission denied" at runtime. Naming it here
+ * fails the deploy instead, with a message that says which key was used.
+ */
+export function serverKeyProblem(key: string): string | null {
+  const publicKey =
+    "SUPABASE_SERVICE_ROLE_KEY holds Supabase's public key. Use the secret key (sb_secret_...) or the legacy service_role key.";
+  if (key.startsWith("sb_publishable_")) return publicKey;
+  if (key.startsWith("sb_")) return null;
+
+  // A legacy key is a JWT whose payload names its role. Read the claim, never
+  // trust it: this only catches a mistake, and Supabase verifies the rest.
+  try {
+    const payload = JSON.parse(Buffer.from(key.split(".")[1] ?? "", "base64url").toString("utf8"));
+    if (payload?.role === "anon") return publicKey;
+  } catch {
+    // Not a JWT we can read. Let Supabase be the judge of it.
+  }
+  return null;
+}
+
 function headers(prefer?: string): HeadersInit {
   if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
   return {
-    apikey: serviceRoleKey,
-    Authorization: `Bearer ${serviceRoleKey}`,
+    ...authHeaders(serviceRoleKey),
     "Content-Type": "application/json",
     "Accept-Profile": "public",
     "Content-Profile": "public",

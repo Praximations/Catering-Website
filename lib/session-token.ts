@@ -32,7 +32,7 @@ export interface SessionPayload {
 
 /** Beside the data file, so the two travel together. */
 const SECRET_FILE = resolve(
-  dirname(resolve(process.cwd(), process.env.DATA_FILE ?? "data/catering.json")),
+  dirname(resolve(process.cwd(), process.env.DATA_FILE || "data/catering.json")),
   ".session-secret"
 );
 

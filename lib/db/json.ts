@@ -25,7 +25,7 @@ import type { Insert, StatusCountRow, Store, Table, TableSpec } from "./store";
  * to a nonsense path nested under the project instead. resolve honours an
  * absolute path and still treats a relative one as relative to the root.
  */
-const FILE = resolve(process.cwd(), process.env.DATA_FILE ?? "data/catering.json");
+const FILE = resolve(process.cwd(), process.env.DATA_FILE || "data/catering.json");
 
 type Row = Record<string, unknown>;
 

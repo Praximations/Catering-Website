@@ -24,8 +24,17 @@
 -- statements, which is what makes double-charging and double-approving
 -- impossible rather than unlikely.
 
-create extension if not exists "pgcrypto";   -- gen_random_uuid()
-create extension if not exists "citext";     -- case-insensitive email
+-- Extensions live in their own schema, which is where Supabase keeps them and
+-- what its security advisor asks for: everything in public is exposed through
+-- the REST API, an extension's functions included. gen_random_uuid() is built
+-- into Postgres 13 and later, so citext is the only one needed.
+create schema if not exists extensions;
+create extension if not exists "citext" with schema extensions;  -- case-insensitive email
+
+-- So the bare `citext` below resolves on a plain Postgres too. Supabase
+-- already searches extensions; this is for everywhere else. An older database
+-- that has citext in public still resolves it from there.
+set search_path = public, extensions;
 
 /* ================================== people ================================= */
 
@@ -102,6 +111,9 @@ create table if not exists public.contacts (
 
 create index if not exists contacts_created_at on public.contacts (created_at desc);
 create index if not exists contacts_status on public.contacts (status);
+-- Every foreign key gets an index. Deleting a user sets this column to null,
+-- and without the index that is a scan of the whole table for each deletion.
+create index if not exists contacts_user_id on public.contacts (user_id);
 
 /* ================================== orders ================================= */
 
@@ -194,6 +206,7 @@ create index if not exists customer_messages_user_id
   on public.customer_messages (user_id, created_at);
 create index if not exists customer_messages_created_at
   on public.customer_messages (created_at desc);
+create index if not exists customer_messages_order_id on public.customer_messages (order_id);
 
 /* ============================== saved preferences ========================== */
 
@@ -524,3 +537,47 @@ create or replace view public.order_counts
     coalesce(sum(subtotal_minor), 0)::bigint as subtotal_minor
   from public.orders
   group by status, payment_status;
+
+/* ================================= grants ================================== */
+
+-- RLS with no policies already denies anon and authenticated every row. This
+-- takes the privileges away as well, for two reasons. A refusal then reads as
+-- "permission denied" rather than as an empty table, which is the honest
+-- answer. And the functions stop being callable through the REST API with the
+-- public key: place_order refuses such a caller at the insert, but only after
+-- the sequence has advanced, so anyone could burn order references.
+--
+-- Functions are executable by PUBLIC unless revoked, and every role inherits
+-- from PUBLIC, so revoking from anon alone would change nothing. The
+-- service_role grants are restated so that revoke cannot take the server's
+-- own access with it. Guarded, because these roles exist only on Supabase.
+revoke execute on function public.place_order(jsonb, jsonb) from public;
+revoke execute on function public.prune_expired() from public;
+revoke execute on function public.touch_updated_at() from public;
+
+do $$
+declare
+  r text;
+begin
+  foreach r in array array['anon', 'authenticated'] loop
+    if exists (select 1 from pg_roles where rolname = r) then
+      execute format('revoke all on all tables in schema public from %I', r);
+      execute format('revoke all on all sequences in schema public from %I', r);
+      execute format('revoke all on all functions in schema public from %I', r);
+    end if;
+  end loop;
+
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant usage on schema public to service_role;
+    -- Without this, citext's case-insensitive = is invisible to the server,
+    -- and Postgres does not refuse: it quietly compares as text instead, so
+    -- "Ari@x.com" stops matching "ari@x.com". Supabase grants it already;
+    -- stating it means correctness does not rest on a platform default.
+    grant usage on schema extensions to service_role;
+    grant all on all tables in schema public to service_role;
+    grant all on all sequences in schema public to service_role;
+    grant execute on function public.place_order(jsonb, jsonb) to service_role;
+    grant execute on function public.prune_expired() to service_role;
+  end if;
+end;
+$$;

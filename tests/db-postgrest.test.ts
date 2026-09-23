@@ -22,6 +22,8 @@ interface Call {
 
 let calls: Call[] = [];
 let store: Store;
+let authHeaders: (key: string) => Record<string, string>;
+let serverKeyProblem: (key: string) => string | null;
 let reply: (call: Call) => { status?: number; body?: unknown; headers?: Record<string, string> };
 
 before(async () => {
@@ -40,7 +42,7 @@ before(async () => {
     return new Response(status === 204 ? null : JSON.stringify(body), { status, headers });
   }) as typeof fetch;
 
-  ({ postgrestStore: store } = await import("@/lib/db/postgrest"));
+  ({ postgrestStore: store, authHeaders, serverKeyProblem } = await import("@/lib/db/postgrest"));
 });
 
 beforeEach(() => {
@@ -59,6 +61,28 @@ describe("postgrest adapter: authentication", () => {
       last().headers.get("authorization"),
       "Bearer service-role-key-for-tests"
     );
+  });
+
+  it("sends a secret key as apikey only, because Supabase rejects it as a bearer token", () => {
+    assert.deepEqual(authHeaders("sb_secret_abc"), { apikey: "sb_secret_abc" });
+  });
+
+  it("sends a legacy JWT key as both apikey and bearer token", () => {
+    assert.deepEqual(authHeaders("eyJ.payload.sig"), {
+      apikey: "eyJ.payload.sig",
+      Authorization: "Bearer eyJ.payload.sig",
+    });
+  });
+
+  it("names the public key when it is pasted where the server key belongs", () => {
+    const legacyAnon = `h.${Buffer.from(JSON.stringify({ role: "anon" })).toString("base64url")}.s`;
+    const legacyService = `h.${Buffer.from(JSON.stringify({ role: "service_role" })).toString("base64url")}.s`;
+    assert.match(serverKeyProblem("sb_publishable_abc") ?? "", /public key/);
+    assert.match(serverKeyProblem(legacyAnon) ?? "", /public key/);
+    assert.equal(serverKeyProblem("sb_secret_abc"), null);
+    assert.equal(serverKeyProblem(legacyService), null);
+    // Unreadable is not wrong. Supabase decides, not a guess made here.
+    assert.equal(serverKeyProblem("not-a-jwt"), null);
   });
 
   it("pins the schema, so a search_path cannot redirect a query", async () => {
