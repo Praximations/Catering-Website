@@ -106,6 +106,23 @@ describe("json adapter", () => {
     );
   });
 
+  it("lets any number of rows leave a unique column empty, as Postgres does", async () => {
+    // An SMS provider's message id is unique WHEN SET. Web messages have none,
+    // and Postgres treats NULLs as distinct, so a second one must be allowed.
+    const rows = store.from<{ id?: string; externalId: string | null }>({
+      name: "test_optional",
+      primaryKey: ["id"],
+      unique: [["externalId"]],
+      generated: { id: "uuid" },
+    });
+    await rows.insert({ externalId: null });
+    await rows.insert({ externalId: null });
+    await rows.insert({ externalId: "SM1" });
+
+    await assert.rejects(() => rows.insert({ externalId: "SM1" }), /already has a row/);
+    assert.equal(await rows.count(), 3);
+  });
+
   it("returns null from insertIfAbsent instead of throwing, because that is an answer", async () => {
     const rows = store.from<Row>(SPEC);
     await rows.insert({ name: "Holder", email: "taken@example.com" });

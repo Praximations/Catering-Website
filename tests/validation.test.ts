@@ -11,6 +11,7 @@ import {
   lines,
   password,
   Problems,
+  safeNextPath,
   text,
 } from "@/lib/validation";
 
@@ -203,5 +204,34 @@ describe("Problems", () => {
     problems.add("a", "x");
     problems.fieldErrors.a = "tampered";
     assert.equal(problems.fieldErrors.a, "x");
+  });
+});
+
+describe("safeNextPath", () => {
+  it("keeps a path on this site, with its query and fragment", () => {
+    assert.equal(safeNextPath("/cart"), "/cart");
+    assert.equal(safeNextPath("/account/orders?tab=past#top"), "/account/orders?tab=past#top");
+  });
+
+  it("refuses anything that would leave the site, which is an open redirect", () => {
+    for (const value of [
+      "https://evil.example",
+      "//evil.example",
+      "/\\evil.example",
+      "\\evil.example",
+      "javascript:alert(1)",
+      "cart",
+      "/ /evil",
+      "/\u0000",
+      "/café",
+    ]) {
+      assert.equal(safeNextPath(value), null, value);
+    }
+  });
+
+  it("refuses nothing and anything too long", () => {
+    assert.equal(safeNextPath(null), null);
+    assert.equal(safeNextPath(""), null);
+    assert.equal(safeNextPath(`/${"a".repeat(200)}`), null);
   });
 });

@@ -3,7 +3,7 @@ import { activeGeocoder } from "./geo";
 import { activeProvider } from "./payments";
 import { praxiConfigured } from "./praxi";
 import { activeSmsProvider } from "./sms";
-import { isGoogleAuthConfigured } from "./supabase-auth";
+import { isGoogleAuthConfigured } from "./supabase-config";
 
 /**
  * The policy pages, as data.

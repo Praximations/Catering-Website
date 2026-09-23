@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-export const isGoogleAuthConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export { isGoogleAuthConfigured } from "./supabase-config";
 
 export async function createSupabaseAuthClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
