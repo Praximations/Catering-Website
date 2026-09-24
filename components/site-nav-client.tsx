@@ -16,8 +16,6 @@ import {
   HomeIcon,
   InfoIcon,
   LogOutIcon,
-  MailIcon,
-  MapPinIcon,
   MenuIcon,
   PhoneIcon,
   ReceiptIcon,
@@ -65,12 +63,12 @@ function homeFor(user: NavUser): string {
 }
 
 /**
- * The navbar, floating and rounded rather than a full-width strip.
+ * The navbar: floating and rounded, and as wide as the window less a small
+ * margin, so it frames the page rather than sitting inside it.
  *
- * DESKTOP: a slim strip above it says where the business delivers and how to
- * reach it, the two things a caterer's customer checks first. The bar has the
- * logo, the main links, the phone number, the basket, the account and an
- * Order online button: a business's site, with the thing to do on the right.
+ * DESKTOP: the logo, the main links, the phone number, the basket, the
+ * account and an Order online button: a business's site, with the thing to
+ * do on the right.
  * The active link carries a soft pill that SLIDES to the next link on
  * navigation (a named ViewTransition, so the browser does the motion).
  *
@@ -85,8 +83,6 @@ export function SiteNavClient({
   businessName,
   phone,
   phoneHref,
-  email,
-  serviceArea,
 }: {
   user: NavUser;
   cartCount: number;
@@ -94,8 +90,6 @@ export function SiteNavClient({
   businessName: string;
   phone: string;
   phoneHref: string;
-  email: string;
-  serviceArea: string;
 }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
@@ -125,74 +119,56 @@ export function SiteNavClient({
   return (
     <>
       {/* ------------------------------ desktop ------------------------------ */}
-      <div className="hidden lg:block">
-        <div className="mx-auto flex h-10 max-w-page items-center justify-between gap-6 px-8 text-[0.8125rem] text-ink-muted">
-          <p className="flex min-w-0 items-center gap-1.5">
-            <MapPinIcon className="size-3.5 shrink-0 text-accent" />
-            <span className="truncate">Delivering across {serviceArea}</span>
-          </p>
-          <p className="flex shrink-0 items-center gap-5">
-            <span>Made fresh, delivered ready to serve</span>
-            <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink">
-              <MailIcon className="size-3.5" />
-              {email}
+      <header className="sticky top-3 z-40 hidden px-4 lg:block">
+        <div className={cx("flex h-16 items-center gap-6 pr-2.5 pl-4", barClass)}>
+          <Logo name={businessName} />
+
+          <nav aria-label="Main" className="flex flex-1 justify-center">
+            <ul className="flex items-center gap-1">
+              {DESKTOP_LINKS.map((link) => {
+                const active = isActive(pathname, link.href);
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cx(
+                        "relative isolate inline-flex h-10 items-center rounded-full px-4 text-[0.9375rem] font-medium transition-colors duration-200",
+                        active ? "text-accent-strong" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
+                      )}
+                    >
+                      {active ? (
+                        <ViewTransition name="nav-pill" share="nav-pill" default="none">
+                          <span aria-hidden className="absolute inset-0 -z-10 rounded-full bg-accent/12" />
+                        </ViewTransition>
+                      ) : null}
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-1">
+            <a
+              href={phoneHref}
+              aria-label={`Call ${phone}`}
+              className="group inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"
+            >
+              <PhoneIcon data-motion="wiggle" className="nav-icon size-4 text-accent" />
+              <span className="hidden xl:inline">{phone}</span>
             </a>
-          </p>
-        </div>
-      </div>
-
-      <header className="sticky top-3 z-40 hidden lg:block">
-        <div className="mx-auto max-w-page px-8">
-          <div className={cx("flex h-16 items-center gap-6 pr-2.5 pl-4", barClass)}>
-            <Logo name={businessName} />
-
-            <nav aria-label="Main" className="flex flex-1 justify-center">
-              <ul className="flex items-center gap-1">
-                {DESKTOP_LINKS.map((link) => {
-                  const active = isActive(pathname, link.href);
-                  return (
-                    <li key={link.href}>
-                      <Link
-                        href={link.href}
-                        aria-current={active ? "page" : undefined}
-                        className={cx(
-                          "relative isolate inline-flex h-10 items-center rounded-full px-4 text-[0.9375rem] font-medium transition-colors duration-200",
-                          active ? "text-accent-strong" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
-                        )}
-                      >
-                        {active ? (
-                          <ViewTransition name="nav-pill" share="nav-pill" default="none">
-                            <span aria-hidden className="absolute inset-0 -z-10 rounded-full bg-accent/12" />
-                          </ViewTransition>
-                        ) : null}
-                        {link.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-
-            <div className="flex shrink-0 items-center gap-1">
-              <a
-                href={phoneHref}
-                aria-label={`Call ${phone}`}
-                className="group inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"
-              >
-                <PhoneIcon data-motion="wiggle" className="nav-icon size-4 text-accent" />
-                <span className="hidden xl:inline">{phone}</span>
-              </a>
-              <BasketButton count={cartCount} active={pathname === "/cart"} />
-              <AccountMenu user={user} unread={unread} pathname={pathname} />
-              <Link
-                href="/shop"
-                aria-current={isActive(pathname, "/shop") ? "page" : undefined}
-                className="group ml-1.5 inline-flex h-10 items-center gap-1.5 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent shadow-xs transition-colors hover:bg-accent-strong"
-              >
-                Order online
-                <ChevronRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Link>
-            </div>
+            <BasketButton count={cartCount} active={pathname === "/cart"} />
+            <AccountMenu user={user} unread={unread} pathname={pathname} />
+            <Link
+              href="/shop"
+              aria-current={isActive(pathname, "/shop") ? "page" : undefined}
+              className="group ml-1.5 inline-flex h-10 items-center gap-1.5 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent shadow-xs transition-colors hover:bg-accent-strong"
+            >
+              Order online
+              <ChevronRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
       </header>

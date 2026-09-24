@@ -34,8 +34,6 @@ export async function SiteNav() {
       businessName={business.name}
       phone={business.phone}
       phoneHref={phoneHref}
-      email={business.email}
-      serviceArea={business.serviceArea}
     />
   );
 }

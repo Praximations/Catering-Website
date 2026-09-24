@@ -239,11 +239,17 @@ Every screen, public, account and portal, is assembled from the same parts.
   shadow or an icon moving; a button never lifts.
 - **Scroll reveals hide only what starts below the fold** (`reveal()` plus
   `RevealOnScroll`), and nothing at all without JavaScript or when printing.
-  `reveal(index, { motion })` rises by default, `zoom`s a photo (the frame
-  settles while the image eases back) or just `fade`s; the index staggers a
-  row. NEVER a sideways motion: a transform counts towards the page's width,
-  and a slide from the right is a phone page wider than the phone. Big photos
-  add `parallax`, a scroll-driven animation with a still fallback.
+  `reveal(index, { motion })` rises by default, `zoom`s a photo or just
+  `fade`s; the index staggers a row. A photo makes ONE movement: the frame
+  fades while the image settles from slightly large, and a photo inside a
+  rising card only settles. A frame that scaled while its image scaled the
+  other way on another clock is what felt rough. Long movements use
+  `ease-smooth`. NEVER a sideways motion: a transform counts towards the
+  page's width, and a slide from the right is a phone page wider than the
+  phone. Big photos add `parallax`, a scroll-driven animation on a NAMED
+  view timeline, because `view()` follows the nearest scroll container and
+  a frame with `overflow: hidden` is one, which left the parallax still. The
+  hero's load zoom is on a wrapper so it composes with the parallax.
   Page transitions are React's `<ViewTransition>` in `app/(site)/template.tsx`.
   Sheets are a native `<dialog>` (`components/dialog.tsx`); expandable
   detail is a native `<details>` (`Disclosure`).
@@ -252,13 +258,15 @@ Every screen, public, account and portal, is assembled from the same parts.
   label that repeats its heading, no second button that does what the first
   one does.
 - **A caterer's site, not an app.** On a desktop the main links are words,
-  with Order online as the button on the right and a slim strip above saying
-  where the business delivers and how to reach it; icons belong to the
-  phone's dock and menu. Facts are plain lines (`FactChips`), not tags. The
+  with the phone number and Order online as the button on the right; icons
+  belong to the phone's dock and menu. Facts are plain lines (`FactChips`), not tags. The
   home page alternates full-width white bands with the page and leads with
   large food photos. Its "what every order gets" lines are only promises the
   site already makes elsewhere.
-- **Widths.** Pages use the full measure, `max-w-page`, so a wide screen is
+- **Widths.** The navbar and the footer span the window, less the same
+  small margin, and frame the page. The footer is a sheet rounded at the top
+  that runs into the bottom of the window (`shadow-up`), not a card floating
+  above a gap. Pages use the full measure, `max-w-page`, so a wide screen is
   not mostly margin. Forms, checkout and the account use
   `Container size="medium"`, where a longer line is harder to follow, and
   single-column reading uses `narrow`.

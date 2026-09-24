@@ -5,8 +5,10 @@ import { business, isPlaceholderBusiness } from "@/lib/business";
 import { phoneHref } from "@/lib/facts";
 
 /**
- * The footer: a rounded panel that matches the navbar, with the three things
- * people scroll down for. How to reach you, where to order, and the policies.
+ * The footer: a sheet as wide as the navbar, rounded at the top and running
+ * into the bottom of the window, so the page ends on it rather than on a card
+ * floating above a gap. It holds the three things people scroll down for: how
+ * to reach you, where to order, and the policies.
  *
  * Not rendered on sign in and sign up (app/(auth) has its own layout), where
  * anything that leads away from the form is a distraction.
@@ -49,9 +51,9 @@ export function SiteFooter() {
   ].filter((social) => social.href);
 
   return (
-    <footer className="mx-auto w-full max-w-page px-3 pt-20 pb-28 sm:px-6 lg:px-8 lg:pb-6">
-      <div className="rounded-2xl border border-line bg-surface shadow-sm">
-        <div className="grid grid-cols-1 gap-8 px-6 py-8 sm:px-10 sm:py-10 md:grid-cols-[1.3fr_3fr] md:gap-10">
+    <footer className="mt-20 px-3 lg:px-4">
+      <div className="rounded-t-2xl border border-b-0 border-line bg-surface shadow-up">
+        <div className="mx-auto grid max-w-page grid-cols-1 gap-8 px-6 pt-12 pb-10 sm:px-10 md:grid-cols-[1.3fr_3fr] md:gap-10 lg:px-12 lg:pt-16 lg:pb-12">
           <div className="max-w-xs">
             <Logo name={business.name} />
             <p className="mt-4 text-sm leading-6 text-ink-muted">{business.tagline}.</p>
@@ -111,12 +113,16 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-line px-6 py-4 text-xs text-ink-subtle sm:flex-row sm:items-center sm:justify-between sm:px-10">
-          <p>
-            &copy; {new Date().getFullYear()} {business.name}
-          </p>
-          {/* Said out loud, so nobody emails a placeholder address expecting a reply. */}
-          {isPlaceholderBusiness ? <p>The business details on this site are placeholders.</p> : null}
+        {/* Bottom padding clears the phone's dock, which floats over this. The
+            rule sits inside the padding so it lines up with the columns above. */}
+        <div className="mx-auto max-w-page px-6 pb-28 sm:px-10 lg:px-12 lg:pb-6">
+          <div className="flex flex-col gap-2 border-t border-line pt-5 text-xs text-ink-subtle sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              &copy; {new Date().getFullYear()} {business.name}
+            </p>
+            {/* Said out loud, so nobody emails a placeholder address expecting a reply. */}
+            {isPlaceholderBusiness ? <p>The business details on this site are placeholders.</p> : null}
+          </div>
         </div>
       </div>
     </footer>

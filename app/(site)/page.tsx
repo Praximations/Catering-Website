@@ -156,16 +156,20 @@ export default async function Home() {
             </ul>
           </div>
 
-          {/* First on a phone: on a caterer's site the food is the pitch. */}
-          <div className="parallax relative order-first aspect-[4/3] animate-fade-in overflow-hidden rounded-2xl bg-raised shadow-lg lg:order-none lg:aspect-[6/5]">
-            <Image
-              src="/images/gathered-table-hero.png"
-              alt="A catered table with sandwiches on bakery bread, a tomato and mozzarella salad, olives and grilled vegetables"
-              fill
-              priority
-              sizes="(min-width: 1024px) 55vw, 100vw"
-              className="animate-hero-zoom object-cover"
-            />
+          {/* First on a phone: on a caterer's site the food is the pitch.
+              The load zoom is on the wrapper and the parallax on the image, so
+              the two movements compose instead of competing for one transform. */}
+          <div className="parallax relative order-first aspect-[4/3] animate-fade-in-slow overflow-hidden rounded-2xl bg-raised shadow-lg lg:order-none lg:aspect-[6/5]">
+            <div className="absolute inset-0 animate-hero-zoom">
+              <Image
+                src="/images/gathered-table-hero.png"
+                alt="A catered table with sandwiches on bakery bread, a tomato and mozzarella salad, olives and grilled vegetables"
+                fill
+                priority
+                sizes="(min-width: 1024px) 55vw, 100vw"
+                className="object-cover"
+              />
+            </div>
           </div>
         </section>
       </Container>
