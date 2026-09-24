@@ -271,7 +271,9 @@ Every screen, public, account and portal, is assembled from the same parts.
   `Container size="medium"`, where a longer line is harder to follow, and
   single-column reading uses `narrow`.
 - **Three shells, as route groups.** `app/(site)` has the navbar, footer,
-  phone dock and onboarding. `app/(auth)` is sign in and sign up with no
+  phone dock and onboarding; the customer's dashboard under `/account` leaves
+  the footer off (`FooterGate`), because like the Owner Portal it is a
+  working screen, and its own bottom padding clears the phone's dock. `app/(auth)` is sign in and sign up with no
   footer, because anything leading away from the form is a distraction.
   `app/admin` is the Owner Portal with its own sidebar, or dock and sheet.
   The root layout holds only the fonts and the canvas.

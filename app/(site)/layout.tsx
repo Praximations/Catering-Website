@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AnnouncementBanner } from "@/components/announcement";
+import { FooterGate } from "@/components/footer-gate";
 import { RevealOnScroll } from "@/components/motion";
 import { Onboarding } from "@/components/onboarding";
 import { SiteFooter } from "@/components/site-footer";
@@ -9,9 +10,7 @@ import { getCurrentUser } from "@/lib/session";
 
 /**
  * The public site and the customer's account: the floating navbar, the page,
- * the rounded footer.
- *
- * The bottom padding on a phone keeps the last of the page clear of the dock.
+ * and the rounded footer, which the account leaves off (see FooterGate).
  */
 export default async function SiteLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
@@ -22,7 +21,9 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <main id="main" className="flex flex-1 flex-col pt-6 sm:pt-10">
         {children}
       </main>
-      <SiteFooter />
+      <FooterGate>
+        <SiteFooter />
+      </FooterGate>
       <RevealOnScroll />
       <Onboarding signedIn={Boolean(user)} businessName={business.name} />
     </>

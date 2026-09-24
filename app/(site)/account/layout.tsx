@@ -20,7 +20,9 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   const unread = await countUnreadForCustomer(user.id, await orderIdsForAccount(user.id));
 
   return (
-    <Container size="medium">
+    // Without the footer below it, the page's own bottom padding is what keeps
+    // the last of it clear of the phone's dock.
+    <Container size="medium" className="pb-28 lg:pb-16">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={user.name} className="size-12 text-sm" />
